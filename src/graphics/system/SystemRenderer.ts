@@ -6,7 +6,6 @@ export class PlanetarySystemRenderer {
   public stellarLight!: THREE.DirectionalLight;
   public ambientLight!: THREE.AmbientLight;
   public starMesh!: THREE.Mesh;
-  public coronaMesh!: THREE.Mesh;
   public planetMesh!: THREE.Mesh;
   public ringMesh!: THREE.Mesh;
   public atmosphereMesh!: THREE.Mesh;
@@ -14,7 +13,6 @@ export class PlanetarySystemRenderer {
   public habitableZoneMesh!: THREE.Mesh;
 
   private starMaterial!: THREE.ShaderMaterial;
-  private coronaMaterial!: THREE.ShaderMaterial;
   private planetMaterial!: THREE.MeshStandardMaterial;
   private atmosphereMaterial!: THREE.ShaderMaterial;
   private currentSystem: ExoplanetSystem | null = null;
@@ -46,7 +44,7 @@ export class PlanetarySystemRenderer {
 
   private initLighting(): void {
     // 1. Directional Stellar Shadow Caster with 4K Texture Buffer
-    this.stellarLight = new THREE.DirectionalLight(0xfff5ea, 3.8);
+    this.stellarLight = new THREE.DirectionalLight(0xfff8f0, 4.2);
     this.stellarLight.castShadow = true;
     this.stellarLight.shadow.mapSize.width = 4096;
     this.stellarLight.shadow.mapSize.height = 4096;
@@ -62,9 +60,14 @@ export class PlanetarySystemRenderer {
     this.group.add(this.stellarLight);
     this.group.add(this.stellarLight.target);
 
-    // Ambient Nightside Soft Fill
-    this.ambientLight = new THREE.AmbientLight(0x0a1118, 0.4);
+    // Deep Space Ambient Soft Fill - ensures planet nightside is always clearly visible
+    this.ambientLight = new THREE.AmbientLight(0x475569, 1.4);
     this.group.add(this.ambientLight);
+
+    // Soft camera-facing fill light for cinematic planetary contrast
+    const camFillLight = new THREE.DirectionalLight(0x94a3b8, 0.9);
+    camFillLight.position.set(12, 16, 20);
+    this.group.add(camFillLight);
   }
 
   private initStar(): void {
@@ -172,63 +175,25 @@ export class PlanetarySystemRenderer {
             }
           }
 
-          gl_FragColor = vec4(starColor * 1.8, 1.0); // HDR intensity for bloom
+          // Natural stellar luminance without overexposed white blowout
+          gl_FragColor = vec4(starColor * 1.05, 1.0);
         }
       `
     });
 
-    const starGeom = new THREE.SphereGeometry(1.5, 128, 128);
+    const starGeom = new THREE.SphereGeometry(0.85, 128, 128);
     this.starMesh = new THREE.Mesh(starGeom, this.starMaterial);
     this.group.add(this.starMesh);
-
-    // Stellar Corona Mesh with Additive Fresnel Glow
-    this.coronaMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uColorCore: { value: new THREE.Color('#fff0b3') },
-        uColorEdge: { value: new THREE.Color('#ff4500') }
-      },
-      vertexShader: `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        uniform vec3 uColorCore;
-        uniform vec3 uColorEdge;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        void main() {
-          vec3 viewDir = normalize(cameraPosition - vPosition);
-          float rim = 1.0 - max(0.0, dot(vNormal, viewDir));
-          float coronaGlow = pow(rim, 2.5);
-          float pulse = 0.92 + 0.08 * sin(uTime * 2.0 + vPosition.x * 3.0);
-          vec3 color = mix(uColorEdge, uColorCore, rim) * coronaGlow * pulse;
-          gl_FragColor = vec4(color * 1.5, coronaGlow * 0.85);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-      side: THREE.BackSide
-    });
-
-    this.coronaMesh = new THREE.Mesh(new THREE.SphereGeometry(2.1, 64, 64), this.coronaMaterial);
-    this.group.add(this.coronaMesh);
   }
 
   private initPlanetAndRings(): void {
-    // 3. Exoplanet Body with Procedural Surface Map
+    // 3. Exoplanet Body with Procedural Surface Map & Subtle Deep Space Emissive Fill
     this.planetMaterial = new THREE.MeshStandardMaterial({
       map: this.planetCanvasTexture,
-      roughness: 0.78,
-      metalness: 0.15
+      roughness: 0.65,
+      metalness: 0.1,
+      emissive: new THREE.Color(0x1e293b),
+      emissiveIntensity: 0.4
     });
     this.planetMesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 128, 128), this.planetMaterial);
     this.planetMesh.castShadow = true;
@@ -430,22 +395,18 @@ export class PlanetarySystemRenderer {
       system.coordinates.galacticZ
     );
 
-    // Dynamically grade stellar plasma shader and corona based on Planck star color
+    // Dynamically grade stellar plasma shader based on Planck star color
     const starColor = new THREE.Color(system.stellarPhysics.colorHex);
-    this.starMaterial.uniforms.uColorCore.value.copy(starColor).lerp(new THREE.Color('#ffffff'), 0.4);
-    this.starMaterial.uniforms.uColorEdge.value.copy(starColor).multiplyScalar(0.7);
+    this.starMaterial.uniforms.uColorCore.value.copy(starColor).lerp(new THREE.Color('#ffffff'), 0.25);
+    this.starMaterial.uniforms.uColorEdge.value.copy(starColor).multiplyScalar(0.75);
 
-    this.coronaMaterial.uniforms.uColorCore.value.copy(starColor).lerp(new THREE.Color('#ffffff'), 0.5);
-    this.coronaMaterial.uniforms.uColorEdge.value.copy(starColor).multiplyScalar(0.8);
-
-    // Physical Stellar Radius Sizing: Larger stars appear big, smaller dwarf stars appear small
-    const visualStarRadius = Math.max(0.45, Math.min(1.8, system.stellarPhysics.radiusSolar * 0.65));
+    // Physical Stellar Radius Sizing: calibrated so giant stars don't engulf the system
+    const visualStarRadius = Math.max(0.45, Math.min(1.4, system.stellarPhysics.radiusSolar * 0.45));
     this.starMesh.scale.setScalar(visualStarRadius);
-    this.coronaMesh.scale.setScalar(visualStarRadius * 1.35);
 
     // Physical Planetary Radius Sizing:
-    // Terrestrial worlds appear appropriately small, gas giants appear big
-    const visualPlanetRadius = Math.max(0.12, Math.min(0.85, 0.10 + Math.sqrt(system.planetaryPhysics.radiusEarth) * 0.18));
+    // Prominent, clearly visible (Earth ~ 0.38, Gas Giant ~ 0.85)
+    const visualPlanetRadius = Math.max(0.35, Math.min(0.85, 0.28 + Math.sqrt(system.planetaryPhysics.radiusEarth) * 0.16));
     this.planetMesh.scale.setScalar(visualPlanetRadius);
 
     // Generate procedural surface texture for this world
@@ -455,9 +416,9 @@ export class PlanetarySystemRenderer {
     this.ringMesh.visible = system.planetaryPhysics.radiusEarth > 6.0;
 
     // Physical Orbit Scaling:
-    // Nearer planets (tight orbits, e.g. Hot Jupiters) orbit close in and appear large
-    // Farther planets (wide orbits, e.g. cold gas / outer worlds) orbit far out and appear small
-    const orbitRadius = Math.max(2.2, Math.min(8.5, 1.8 + Math.sqrt(system.planetaryPhysics.semiMajorAxisAU) * 3.4));
+    // Ensure planet orbit is comfortably clear of the star surface by at least 2.5 units
+    const starWorldRadius = visualStarRadius * 0.85;
+    const orbitRadius = Math.max(starWorldRadius + 2.5, Math.min(9.5, starWorldRadius + 2.0 + Math.sqrt(system.planetaryPhysics.semiMajorAxisAU) * 3.6));
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 64; i++) {
       const theta = (i / 64) * Math.PI * 2;
@@ -468,14 +429,10 @@ export class PlanetarySystemRenderer {
 
     // Habitable Zone boundaries scaling with sqrt(L*)
     const lum = system.stellarPhysics.luminositySolar;
-    const rInner = Math.sqrt(lum / 1.1) * 3.2;
-    const rOuter = Math.sqrt(lum / 0.53) * 3.2;
+    const rInner = Math.max(starWorldRadius + 1.5, Math.sqrt(lum / 1.1) * 2.5);
+    const rOuter = Math.max(rInner + 1.2, Math.min(15.0, Math.sqrt(lum / 0.53) * 2.5));
     this.habitableZoneMesh.geometry.dispose();
-    this.habitableZoneMesh.geometry = new THREE.RingGeometry(
-      Math.max(1.5, rInner),
-      Math.max(2.0, rOuter),
-      48
-    );
+    this.habitableZoneMesh.geometry = new THREE.RingGeometry(rInner, rOuter, 48);
 
     this.group.visible = true;
   }
@@ -486,13 +443,13 @@ export class PlanetarySystemRenderer {
 
     this.elapsedTime += deltaTime;
     this.starMaterial.uniforms.uTime.value = this.elapsedTime;
-    this.coronaMaterial.uniforms.uTime.value = this.elapsedTime;
     this.atmosphereMaterial.uniforms.uSunPosition.value.copy(this.starMesh.position);
 
     const speed = (2.0 * Math.PI) / Math.max(1.0, this.currentSystem.planetaryPhysics.periodDays * 0.1);
     this.orbitalAngle += speed * deltaTime;
 
-    const orbitRadius = Math.max(2.2, Math.min(8.5, 1.8 + Math.sqrt(this.currentSystem.planetaryPhysics.semiMajorAxisAU) * 3.4));
+    const starWorldRadius = (this.starMesh.scale.x || 1.0) * 0.85;
+    const orbitRadius = Math.max(starWorldRadius + 2.5, Math.min(9.5, starWorldRadius + 2.0 + Math.sqrt(this.currentSystem.planetaryPhysics.semiMajorAxisAU) * 3.6));
     const px = Math.cos(this.orbitalAngle) * orbitRadius;
     const pz = Math.sin(this.orbitalAngle) * orbitRadius;
     this.planetMesh.position.set(px, 0, pz);
@@ -504,7 +461,7 @@ export class PlanetarySystemRenderer {
 
     const zDepth = pz;
     const xDist = Math.abs(px);
-    const starR = this.starMesh.scale.x * 1.5;
+    const starR = this.starMesh.scale.x * 0.85;
     const planetR = this.planetMesh.scale.x * 0.5;
 
     let isTransiting = false;
@@ -542,8 +499,6 @@ export class PlanetarySystemRenderer {
     this.habitableZoneMesh.geometry.dispose();
     this.starMesh.geometry.dispose();
     this.starMaterial.dispose();
-    this.coronaMesh.geometry.dispose();
-    this.coronaMaterial.dispose();
     this.planetMesh.geometry.dispose();
     this.planetMaterial.dispose();
     this.planetCanvasTexture?.dispose();

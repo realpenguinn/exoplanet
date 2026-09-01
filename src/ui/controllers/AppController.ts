@@ -119,12 +119,12 @@ export class CosmoScanApp {
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    // Selective Coronal Bloom
+    // Selective Coronal Bloom - subtle and controlled to prevent washing out the star & planet
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width * 0.5, height * 0.5),
-      0.35,  // Dynamic strength adapted in render loop
-      0.32,  // Radius
-      0.96   // High luminance cutoff
+      0.18,  // Clean, subtle bloom strength
+      0.22,  // Tight radius
+      0.97   // High luminance cutoff
     );
     this.composer.addPass(this.bloomPass);
 
@@ -489,10 +489,9 @@ export class CosmoScanApp {
       this.controls.update();
 
       // Dynamic Context-Aware Bloom Curve
-      // When close to stellar system (< 40 units), bloom up to 0.52 for rich corona
-      // When far away viewing 500k galaxy stars (> 120 units), tone down to 0.24 to prevent blowout
+      // Subtle, controlled bloom: tight coronal glow without washing out star surface or planet
       const bloomFactor = THREE.MathUtils.clamp((130.0 - camTargetDist) / 100.0, 0.0, 1.0);
-      this.bloomPass.strength = THREE.MathUtils.lerp(0.24, 0.52, bloomFactor);
+      this.bloomPass.strength = THREE.MathUtils.lerp(0.12, 0.22, bloomFactor);
 
       // Update Film Grain Shader Time Uniform
       this.filmVignettePass.uniforms.uTime.value = elapsedTime;
