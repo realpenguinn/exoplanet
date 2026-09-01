@@ -13,12 +13,12 @@ export class TargetNodes {
     this.systemIndexMap = systems;
     const count = systems.length;
 
-    // Lightweight sphere geometry for target markers
-    const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+    // Lightweight base sphere geometry for target markers
+    const geometry = new THREE.SphereGeometry(0.08, 8, 8);
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       blending: THREE.AdditiveBlending
     });
 
@@ -28,11 +28,20 @@ export class TargetNodes {
     const color = new THREE.Color();
     for (let i = 0; i < count; i++) {
       const sys = systems[i];
+
+      // Physical & Astrometric Apparent Sizing:
+      // Nearer stars appear BIG, farther stars appear SMALL; larger stars appear bigger
+      const distPc = Math.max(5.0, sys.coordinates.distancePc);
+      const starRad = Math.max(0.2, Math.min(3.0, sys.stellarPhysics.radiusSolar));
+      const distFactor = Math.pow(150.0 / distPc, 0.42);
+      const starScale = Math.max(0.35, Math.min(2.4, Math.sqrt(starRad) * distFactor));
+
       this.dummy.position.set(
         sys.coordinates.galacticX,
         sys.coordinates.galacticY,
         sys.coordinates.galacticZ
       );
+      this.dummy.scale.setScalar(starScale);
       this.dummy.updateMatrix();
       this.instancedMesh.setMatrixAt(i, this.dummy.matrix);
 
@@ -60,7 +69,7 @@ export class TargetNodes {
     }
 
     // Pulsing Selection Ring for Active Target
-    const ringGeom = new THREE.RingGeometry(0.6, 0.85, 32);
+    const ringGeom = new THREE.RingGeometry(0.25, 0.38, 32);
     this.ringMaterial = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       side: THREE.DoubleSide,

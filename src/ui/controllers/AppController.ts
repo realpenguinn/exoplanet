@@ -182,7 +182,11 @@ export class CosmoScanApp {
     // Default target: Select Kepler-186 f if available, or first record
     const defaultTarget = this.exoplanetData.find((s) => s.planetName.toLowerCase().includes('kepler-186 f')) || this.exoplanetData[0];
     if (defaultTarget) {
-      this.selectTarget(defaultTarget);
+      this.currentSystem = defaultTarget;
+      this.systemRenderer.loadSystem(defaultTarget);
+      this.systemRenderer.group.visible = false; // Start in clean galactic macro view
+      this.targetNodes?.setSelection(defaultTarget);
+      this.updateHUD(defaultTarget);
     }
   }
 
@@ -398,6 +402,10 @@ export class CosmoScanApp {
       this.cameraController.update(delta);
       this.targetNodes?.update(delta, this.camera);
 
+      // Only show planetary system close-up mesh when zoomed in within 45 units of target
+      const camTargetDist = this.camera.position.distanceTo(this.systemRenderer.group.position);
+      this.systemRenderer.group.visible = camTargetDist < 45.0;
+
       const { isTransiting, flux } = this.systemRenderer.update(delta, this.camera);
 
       // Web Audio Sonification & Ambient Atmosphere
@@ -426,7 +434,6 @@ export class CosmoScanApp {
       // Dynamic Context-Aware Bloom Curve
       // When close to stellar system (< 40 units), bloom up to 0.52 for rich corona
       // When far away viewing 500k galaxy stars (> 120 units), tone down to 0.24 to prevent blowout
-      const camTargetDist = this.camera.position.distanceTo(this.systemRenderer.group.position);
       const bloomFactor = THREE.MathUtils.clamp((130.0 - camTargetDist) / 100.0, 0.0, 1.0);
       this.bloomPass.strength = THREE.MathUtils.lerp(0.24, 0.52, bloomFactor);
 

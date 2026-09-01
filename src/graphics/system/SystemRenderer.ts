@@ -438,11 +438,14 @@ export class PlanetarySystemRenderer {
     this.coronaMaterial.uniforms.uColorCore.value.copy(starColor).lerp(new THREE.Color('#ffffff'), 0.5);
     this.coronaMaterial.uniforms.uColorEdge.value.copy(starColor).multiplyScalar(0.8);
 
-    const visualStarRadius = Math.max(0.7, Math.min(2.2, system.stellarPhysics.radiusSolar * 0.8));
+    // Physical Stellar Radius Sizing: Larger stars appear big, smaller dwarf stars appear small
+    const visualStarRadius = Math.max(0.45, Math.min(1.8, system.stellarPhysics.radiusSolar * 0.65));
     this.starMesh.scale.setScalar(visualStarRadius);
     this.coronaMesh.scale.setScalar(visualStarRadius * 1.35);
 
-    const visualPlanetRadius = Math.max(0.18, Math.min(0.65, system.planetaryPhysics.radiusEarth * 0.18));
+    // Physical Planetary Radius Sizing:
+    // Terrestrial worlds appear appropriately small, gas giants appear big
+    const visualPlanetRadius = Math.max(0.12, Math.min(0.85, 0.10 + Math.sqrt(system.planetaryPhysics.radiusEarth) * 0.18));
     this.planetMesh.scale.setScalar(visualPlanetRadius);
 
     // Generate procedural surface texture for this world
@@ -451,8 +454,10 @@ export class PlanetarySystemRenderer {
     // Conditional Ring System: Display rings only for Gas Giants (R > 6.0 Earth Radii)
     this.ringMesh.visible = system.planetaryPhysics.radiusEarth > 6.0;
 
-    // Orbit radius scaled for cinematic visualization
-    const orbitRadius = Math.max(2.8, Math.min(10.0, Math.sqrt(system.planetaryPhysics.semiMajorAxisAU) * 4.2));
+    // Physical Orbit Scaling:
+    // Nearer planets (tight orbits, e.g. Hot Jupiters) orbit close in and appear large
+    // Farther planets (wide orbits, e.g. cold gas / outer worlds) orbit far out and appear small
+    const orbitRadius = Math.max(2.2, Math.min(8.5, 1.8 + Math.sqrt(system.planetaryPhysics.semiMajorAxisAU) * 3.4));
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 64; i++) {
       const theta = (i / 64) * Math.PI * 2;
@@ -487,7 +492,7 @@ export class PlanetarySystemRenderer {
     const speed = (2.0 * Math.PI) / Math.max(1.0, this.currentSystem.planetaryPhysics.periodDays * 0.1);
     this.orbitalAngle += speed * deltaTime;
 
-    const orbitRadius = Math.max(2.8, Math.min(10.0, Math.sqrt(this.currentSystem.planetaryPhysics.semiMajorAxisAU) * 4.2));
+    const orbitRadius = Math.max(2.2, Math.min(8.5, 1.8 + Math.sqrt(this.currentSystem.planetaryPhysics.semiMajorAxisAU) * 3.4));
     const px = Math.cos(this.orbitalAngle) * orbitRadius;
     const pz = Math.sin(this.orbitalAngle) * orbitRadius;
     this.planetMesh.position.set(px, 0, pz);

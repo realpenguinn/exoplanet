@@ -3,9 +3,19 @@ import { RawExoplanetRecord, ExoplanetSystem, CrossMatchedRecord } from '../../t
 export class CoordinateTransformer {
   private static readonly DEG_TO_RAD = Math.PI / 180.0;
   private static readonly PC_TO_LY = 3.26156;
-  private static readonly SUN_GALACTIC_X = 25.0; // Scaled Three.js scene units
-  private static readonly SUN_GALACTIC_Z = 15.0;
-  private static readonly SCENE_DISTANCE_SCALE = 0.01; // 100 pc = 1 Three.js unit
+
+  // Real Sun Galactocentric position inside the Milky Way disk (Orion Spur, R0 = 8.2 kpc)
+  private static readonly SUN_GALACTIC_X = 8.2;
+  private static readonly SUN_GALACTIC_Y = 0.02;
+  private static readonly SUN_GALACTIC_Z = 0.0;
+
+  // 1 scene unit = 1000 pc (1 kpc). Scale 0.002 maps 1000 pc to 2 units around Sun
+  private static readonly SCENE_DISTANCE_SCALE = 0.002;
+
+  // IAU J2000 Transformation constants (Equatorial to Galactic)
+  private static readonly RA_NGP = 192.85948 * (Math.PI / 180.0);   // RA of North Galactic Pole
+  private static readonly DEC_NGP = 27.12825 * (Math.PI / 180.0);   // Dec of North Galactic Pole
+  private static readonly L_NCP = 122.93192 * (Math.PI / 180.0);    // Galactic longitude of NCP
 
   public static transformRecord(
     input: CrossMatchedRecord | RawExoplanetRecord,
@@ -18,12 +28,28 @@ export class CoordinateTransformer {
     const decRad = raw.dec * this.DEG_TO_RAD;
     const distPc = raw.sy_dist > 0 ? raw.sy_dist : 100.0;
 
-    const xHelio = distPc * Math.cos(decRad) * Math.cos(raRad) * this.SCENE_DISTANCE_SCALE;
-    const yHelio = distPc * Math.sin(decRad) * this.SCENE_DISTANCE_SCALE;
-    const zHelio = distPc * Math.cos(decRad) * Math.sin(raRad) * this.SCENE_DISTANCE_SCALE;
+    // 1. Rigorous Astronomical Equatorial (RA, Dec) -> Galactic (l, b) Conversion
+    const sinB = Math.sin(decRad) * Math.sin(this.DEC_NGP) +
+                 Math.cos(decRad) * Math.cos(this.DEC_NGP) * Math.cos(raRad - this.RA_NGP);
+    const b = Math.asin(Math.max(-1.0, Math.min(1.0, sinB)));
+    const cosB = Math.cos(b);
+
+    const sinL0MinusL = (Math.cos(decRad) * Math.sin(raRad - this.RA_NGP)) / (cosB || 1e-6);
+    const cosL0MinusL = (Math.sin(decRad) * Math.cos(this.DEC_NGP) -
+                         Math.cos(decRad) * Math.sin(this.DEC_NGP) * Math.cos(raRad - this.RA_NGP)) / (cosB || 1e-6);
+    const l = (this.L_NCP - Math.atan2(sinL0MinusL, cosL0MinusL) + Math.PI * 2.0) % (Math.PI * 2.0);
+
+    // 2. Project into Galactocentric 3D coordinates aligned with the Milky Way disk
+    // l = 0° points towards Galactic Center (-X from Sun)
+    // l = 90° points in direction of Galactic rotation (+Z)
+    // b = 90° points towards North Galactic Pole (+Y)
+    const dScene = distPc * this.SCENE_DISTANCE_SCALE;
+    const xHelio = -dScene * Math.cos(b) * Math.cos(l);
+    const yHelio = dScene * Math.sin(b);
+    const zHelio = dScene * Math.cos(b) * Math.sin(l);
 
     const gx = this.SUN_GALACTIC_X + xHelio;
-    const gy = yHelio;
+    const gy = this.SUN_GALACTIC_Y + yHelio;
     const gz = this.SUN_GALACTIC_Z + zHelio;
 
     // Stellar radius fallback
