@@ -497,11 +497,10 @@ export class PlanetarySystemRenderer {
     const pz = Math.sin(this.orbitalAngle) * orbitRadius;
     this.planetMesh.position.set(px, 0, pz);
 
-    // Dynamic Shadow Camera Tracking: Lock directional light directly to planet local frame
-    const starToPlanet = this.planetMesh.position.clone().sub(this.starMesh.position).normalize();
-    this.stellarLight.position.copy(this.planetMesh.position).sub(starToPlanet.multiplyScalar(20));
+    // Dynamic Stellar Shadow Light: Positioned at star center, pointing directly at planet
+    this.stellarLight.position.copy(this.starMesh.position);
     this.stellarLight.target = this.planetMesh;
-    this.stellarLight.target.updateMatrixWorld();
+    this.planetMesh.updateMatrixWorld();
 
     const zDepth = pz;
     const xDist = Math.abs(px);

@@ -42,6 +42,13 @@ jobs:
       - name: Compile Production Bundle
         run: pnpm build
 
+      - name: Deploy to Cloudflare Workers
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+
       - name: Build Docker Container
         run: docker build -t cosmoscan-suite:latest .
 
