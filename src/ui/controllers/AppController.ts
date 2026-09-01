@@ -1,5 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { MilkyWayGalaxy } from '../../graphics/galaxy/MilkyWay';
 import { TargetNodes } from '../../graphics/galaxy/TargetNodes';
 import { PlanetarySystemRenderer } from '../../graphics/system/SystemRenderer';
@@ -18,6 +23,9 @@ export class CosmoScanApp {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
   private renderer: THREE.WebGLRenderer;
+  private composer!: EffectComposer;
+  private bloomPass!: UnrealBloomPass;
+  private smaaPass!: SMAAPass;
   private controls: OrbitControls;
   private galaxy: MilkyWayGalaxy;
   private targetNodes: TargetNodes | null = null;
@@ -46,16 +54,54 @@ export class CosmoScanApp {
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
     this.camera.position.set(0, 140, 170);
 
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+
+    // 1. 4K WebGL2 Renderer Setup
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas3d,
-      antialias: true,
-      powerPreference: 'high-performance'
+      powerPreference: 'high-performance',
+      antialias: false, // Handled downstream by SMAAPass
+      stencil: false,
+      depth: true
     });
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-
-    // DPR Clamping: Max 2.0 to protect integrated GPUs and preserve 60 FPS
-    const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+    this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(dpr);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+
+    // 4K Soft Shadow Mapping Pipeline
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.autoUpdate = true;
+
+    // 2. 16-bit Float Post-Processing Target & Composer Pipeline
+    const renderTarget = new THREE.WebGLRenderTarget(width * dpr, height * dpr, {
+      type: THREE.HalfFloatType,
+      format: THREE.RGBAFormat,
+      colorSpace: THREE.SRGBColorSpace
+    });
+
+    this.composer = new EffectComposer(this.renderer, renderTarget);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    // Selective Coronal Bloom (Half-resolution for 4K performance)
+    this.bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(width * 0.5, height * 0.5),
+      1.45,  // Strength
+      0.55,  // Radius
+      0.88   // High luminance cutoff
+    );
+    this.composer.addPass(this.bloomPass);
+
+    // 4K SMAA Subpixel Anti-Aliasing
+    this.smaaPass = new SMAAPass(width * dpr, height * dpr);
+    this.composer.addPass(this.smaaPass);
+
+    // Color Management & Tone Mapping Pass
+    this.composer.addPass(new OutputPass());
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
@@ -157,9 +203,19 @@ export class CosmoScanApp {
 
   private bindEvents(): void {
     window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
+
+      this.camera.aspect = width / height;
       this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+      this.renderer.setSize(width, height);
+      this.renderer.setPixelRatio(dpr);
+
+      this.composer.setSize(width, height);
+      this.bloomPass.resolution.set(width * 0.5, height * 0.5);
+
       this.lightCurve.resize();
     });
 
@@ -229,7 +285,6 @@ export class CosmoScanApp {
         }
       });
 
-      // Close search results on outside click
       document.addEventListener('click', (e) => {
         if (!searchInput.contains(e.target as Node) && !searchResults.contains(e.target as Node)) {
           searchResults.style.display = 'none';
@@ -239,7 +294,7 @@ export class CosmoScanApp {
     }
   }
 
-  // 60 FPS Master Render Loop
+  // 60 FPS Master Render Loop with Post-Processing Pipeline
   private animate = (): void => {
     requestAnimationFrame(this.animate);
 
@@ -248,7 +303,7 @@ export class CosmoScanApp {
 
     try {
       this.galaxy.update(delta);
-      this.galaxy.updateCameraPosition(this.camera); // Phase 3.5 perspective uniform streaming
+      this.galaxy.updateCameraPosition(this.camera);
       this.cameraController.update(delta);
       const { isTransiting, flux } = this.systemRenderer.update(delta);
 
@@ -269,7 +324,9 @@ export class CosmoScanApp {
       }
 
       this.controls.update();
-      this.renderer.render(this.scene, this.camera);
+
+      // Post-Processing Cinematic Render Pass
+      this.composer.render();
 
       // Real-time 60 FPS Telemetry
       const fps = this.perfSampler.sample();

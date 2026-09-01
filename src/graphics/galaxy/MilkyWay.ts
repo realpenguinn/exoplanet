@@ -1,6 +1,4 @@
 import * as THREE from 'three';
-import vertexShader from '../../assets/shaders/galaxy.vert.glsl';
-import fragmentShader from '../../assets/shaders/galaxy.frag.glsl';
 
 export class MilkyWayGalaxy {
   public mesh: THREE.Points;
@@ -8,25 +6,62 @@ export class MilkyWayGalaxy {
   private geometry: THREE.BufferGeometry;
   private totalStars: number;
 
-  constructor(particleBudget = 150000) {
+  constructor(particleBudget = 500000) {
     this.totalStars = particleBudget;
     this.geometry = new THREE.BufferGeometry();
+
+    const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.0;
+
     this.material = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
+      vertexShader: `
+        attribute float size;
+        attribute vec3 color;
+        uniform float uTime;
+        uniform vec3 uCameraPosition;
+        varying vec3 vColor;
+
+        void main() {
+          vColor = color;
+
+          // Differential galactic rotation: inner stars rotate faster than outer stars
+          float r = length(position.xz);
+          float omega = 0.08 / (1.0 + r * 0.12);
+          float angle = omega * uTime * 0.15;
+          float cosA = cos(angle);
+          float sinA = sin(angle);
+
+          vec3 rotatedPos = vec3(
+            position.x * cosA - position.z * sinA,
+            position.y,
+            position.x * sinA + position.z * cosA
+          );
+
+          vec4 mvPosition = modelViewMatrix * vec4(rotatedPos, 1.0);
+          gl_PointSize = size * (320.0 / -mvPosition.z) * ${dpr.toFixed(1)};
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+
+        void main() {
+          float d = length(gl_PointCoord - vec2(0.5));
+          if (d > 0.5) discard;
+          float alpha = exp(-16.0 * d * d); // Clean Gaussian star point
+          gl_FragColor = vec4(vColor * 1.5, alpha);
+        }
+      `,
       uniforms: {
         uTime: { value: 0 },
-        uSizeMultiplier: { value: typeof window !== 'undefined' && window.devicePixelRatio > 1 ? 1.4 : 1.8 },
         uCameraPosition: { value: new THREE.Vector3() }
       },
       transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
     });
 
     this.buildMorphology();
     this.mesh = new THREE.Points(this.geometry, this.material);
-    // Background galaxy is always rendered to prevent pop-in during rotation
     this.mesh.frustumCulled = false;
   }
 
@@ -34,127 +69,74 @@ export class MilkyWayGalaxy {
     const N = this.totalStars;
     const positions = new Float32Array(N * 3);
     const colors = new Float32Array(N * 3);
-    const scales = new Float32Array(N);
+    const sizes = new Float32Array(N);
 
-    const cCore = new THREE.Color(0xffeedd);
-    const cBar = new THREE.Color(0xffaa55);
-    const cArmBlue = new THREE.Color(0x66bbff);
-    const cArmCyan = new THREE.Color(0x22eeff);
-    const cDust = new THREE.Color(0xaa2266);
+    const ARMS = 4;
+    const PITCH_ANGLE = 0.2269; // 13 degrees pitch in radians
 
-    let p = 0;
+    const spectralPalette = [
+      new THREE.Color('#9bb0ff'), // O/B Blue Giants
+      new THREE.Color('#ffffff'), // A/F White Stars
+      new THREE.Color('#ffe599'), // G Solar Stars
+      new THREE.Color('#ffb380'), // K Orange Dwarfs
+      new THREE.Color('#ff6b6b')  // M Red Dwarfs
+    ];
 
-    // Sized relative to particle budget
-    const nCore = Math.round(N * (25000 / 150000));
-    const nBar = Math.round(N * (35000 / 150000));
-    const nArms = Math.round(N * (75000 / 150000));
+    const bulgeCount = Math.floor(N * 0.25);
 
-    // 1. Central Bulge & Sgr A* Core
-    for (let i = 0; i < nCore && p < N; i++) {
-      const r = Math.pow(Math.random(), 2.5) * 16.0;
-      const th = Math.random() * Math.PI * 2;
-      const ph = (Math.random() - 0.5) * Math.PI;
+    for (let i = 0; i < N; i++) {
+      const i3 = i * 3;
 
-      positions[p * 3] = r * Math.cos(th) * Math.cos(ph);
-      positions[p * 3 + 1] = r * Math.sin(ph) * 0.7;
-      positions[p * 3 + 2] = r * Math.sin(th) * Math.cos(ph);
+      if (i < bulgeCount) {
+        // Galactic Bulge & Triaxial Bar (Gaussian Distribution)
+        const u = Math.max(1e-6, Math.random());
+        const r = Math.sqrt(-2.0 * Math.log(u)) * 1.8;
+        const phi = Math.random() * Math.PI * 2;
 
-      const mixed = cCore.clone().lerp(cBar, Math.random() * 0.6);
-      colors[p * 3] = mixed.r;
-      colors[p * 3 + 1] = mixed.g;
-      colors[p * 3 + 2] = mixed.b;
-      scales[p] = Math.random() * 1.6 + 0.8;
-      p++;
-    }
+        positions[i3] = r * Math.cos(phi) * 1.8;
+        positions[i3 + 1] = (Math.random() - 0.5) * 0.9 * Math.exp(-r / 2.0);
+        positions[i3 + 2] = r * Math.sin(phi) * 0.8;
 
-    // 2. Triaxial Galactic Bar - Inclination 27 degrees
-    const barAngleRad = (27.0 * Math.PI) / 180.0;
-    const cosBar = Math.cos(barAngleRad);
-    const sinBar = Math.sin(barAngleRad);
-
-    for (let i = 0; i < nBar && p < N; i++) {
-      const length = (Math.random() - 0.5) * 38.0;
-      const width = (Math.random() - 0.5) * 8.0 * (1.0 - Math.abs(length) / 25.0);
-      const height = (Math.random() - 0.5) * 5.0 * (1.0 - Math.abs(length) / 25.0);
-
-      const rx = length * cosBar - width * sinBar;
-      const rz = length * sinBar + width * cosBar;
-
-      positions[p * 3] = rx;
-      positions[p * 3 + 1] = height;
-      positions[p * 3 + 2] = rz;
-
-      const mixed = cBar.clone().lerp(cCore, Math.random() * 0.4);
-      colors[p * 3] = mixed.r;
-      colors[p * 3 + 1] = mixed.g;
-      colors[p * 3 + 2] = mixed.b;
-      scales[p] = Math.random() * 1.3 + 0.6;
-      p++;
-    }
-
-    // 3. 4-Arm Logarithmic Spiral Geometry (Pitch 13 degrees)
-    const armCount = 4;
-    const pitchAngle = (13.0 * Math.PI) / 180.0;
-    const tanPitch = Math.tan(pitchAngle);
-
-    for (let i = 0; i < nArms && p < N; i++) {
-      const armIndex = i % armCount;
-      const armOffset = (armIndex * 2.0 * Math.PI) / armCount;
-      const r = 10.0 + Math.pow(Math.random(), 1.6) * 85.0;
-      const theta = Math.log(r / 10.0) / tanPitch + armOffset;
-
-      const dispersion = (Math.random() - 0.5) * (r * 0.22);
-      const finalAngle = theta + dispersion / r;
-
-      const x = r * Math.cos(finalAngle);
-      const z = r * Math.sin(finalAngle);
-      const scaleHeight = (r * 0.05 + 1.2) * (Math.random() - 0.5) * (Math.random() - 0.5) * 4.0;
-
-      positions[p * 3] = x;
-      positions[p * 3 + 1] = scaleHeight;
-      positions[p * 3 + 2] = z;
-
-      let col: THREE.Color;
-      if (i % 6 === 0) {
-        col = cDust;
+        // Core stars: Old, red-orange dominant
+        const col = spectralPalette[3].clone().lerp(spectralPalette[2], Math.random());
+        colors[i3] = col.r;
+        colors[i3 + 1] = col.g;
+        colors[i3 + 2] = col.b;
+        sizes[i] = Math.random() * 2.5 + 1.0;
       } else {
-        col = cArmBlue.clone().lerp(cArmCyan, Math.random() * 0.5);
+        // Spiral Arms: r(theta) = r0 * exp((theta - theta0) * tan(psi))
+        const armIdx = i % ARMS;
+        const thetaOffset = (armIdx * 2 * Math.PI) / ARMS;
+        const dist = Math.pow(Math.random(), 1.5) * 18.0 + 1.2;
+        const spiralAngle = Math.log(dist / 1.2) / Math.tan(PITCH_ANGLE) + thetaOffset;
+
+        // Arm cross-sectional scatter
+        const scatter = Math.sqrt(-2.0 * Math.log(Math.max(1e-5, Math.random()))) * 0.75;
+        const scatterAngle = Math.random() * Math.PI * 2;
+
+        positions[i3] = dist * Math.cos(spiralAngle) + scatter * Math.cos(scatterAngle);
+        positions[i3 + 1] = (Math.random() - 0.5) * 0.45 * Math.exp(-dist / 12.0);
+        positions[i3 + 2] = dist * Math.sin(spiralAngle) + scatter * Math.sin(scatterAngle);
+
+        // Arm stars: Hot OB star forming regions along edge
+        const specIdx = Math.floor(Math.random() * spectralPalette.length);
+        const col = spectralPalette[specIdx];
+        colors[i3] = col.r;
+        colors[i3 + 1] = col.g;
+        colors[i3 + 2] = col.b;
+        sizes[i] = Math.random() * 1.8 + 0.8;
       }
-
-      colors[p * 3] = col.r;
-      colors[p * 3 + 1] = col.g;
-      colors[p * 3 + 2] = col.b;
-      scales[p] = Math.random() * 1.2 + 0.4;
-      p++;
-    }
-
-    // 4. Outer Halo & Globular Clusters
-    while (p < N) {
-      const r = 25.0 + Math.random() * 95.0;
-      const th = Math.random() * Math.PI * 2;
-      const ph = (Math.random() - 0.5) * Math.PI;
-
-      positions[p * 3] = r * Math.cos(th) * Math.cos(ph);
-      positions[p * 3 + 1] = r * Math.sin(ph) * 0.35;
-      positions[p * 3 + 2] = r * Math.sin(th) * Math.cos(ph);
-
-      colors[p * 3] = 0.75;
-      colors[p * 3 + 1] = 0.75;
-      colors[p * 3 + 2] = 0.85;
-      scales[p] = Math.random() * 0.8 + 0.3;
-      p++;
     }
 
     this.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    this.geometry.setAttribute('aColor', new THREE.BufferAttribute(colors, 3));
-    this.geometry.setAttribute('aScale', new THREE.BufferAttribute(scales, 1));
+    this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    this.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
   }
 
   public update(deltaTime: number): void {
     this.material.uniforms.uTime.value += deltaTime;
   }
 
-  // Phase 3.5 Perspective Color Grading: streaming camera position every frame
   public updateCameraPosition(camera: THREE.PerspectiveCamera): void {
     this.material.uniforms.uCameraPosition.value.copy(camera.position);
   }

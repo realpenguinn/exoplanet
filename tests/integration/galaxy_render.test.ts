@@ -3,37 +3,37 @@ import * as THREE from 'three';
 import { MilkyWayGalaxy } from '../../src/graphics/galaxy/MilkyWay';
 import { detectParticleTier } from '../../src/graphics/galaxy/particleTier';
 
-describe('MilkyWayGalaxy Particle Mesh & Shader Integrity', () => {
-  it('instantiates 150,000 unique particle coordinates at default FULL tier', () => {
+describe('MilkyWayGalaxy 500,000 Particle Mesh & Shader Integrity', () => {
+  it('instantiates 500,000 unique particle coordinates at default FULL tier', () => {
     const galaxy = new MilkyWayGalaxy();
     const posAttr = galaxy.mesh.geometry.getAttribute('position');
-    expect(posAttr.count).toBe(150000);
+    expect(posAttr.count).toBe(500000);
     expect(posAttr.itemSize).toBe(3);
   });
 
-  it('populates vertex color and scale buffers with valid ranges', () => {
+  it('populates vertex color and size buffers with valid ranges', () => {
     const galaxy = new MilkyWayGalaxy();
-    const colorAttr = galaxy.mesh.geometry.getAttribute('aColor');
-    const scaleAttr = galaxy.mesh.geometry.getAttribute('aScale');
+    const colorAttr = galaxy.mesh.geometry.getAttribute('color');
+    const sizeAttr = galaxy.mesh.geometry.getAttribute('size');
 
-    expect(colorAttr.count).toBe(150000);
-    expect(scaleAttr.count).toBe(150000);
+    expect(colorAttr.count).toBe(500000);
+    expect(sizeAttr.count).toBe(500000);
 
     for (let i = 0; i < 1000; i++) {
-      expect(scaleAttr.getX(i)).toBeGreaterThan(0.0);
+      expect(sizeAttr.getX(i)).toBeGreaterThan(0.0);
       expect(colorAttr.getX(i)).toBeLessThanOrEqual(1.5);
     }
   });
 
-  it('correctly adapts particle count on REDUCED (60k) and MINIMAL (20k) tiers', () => {
-    const reducedGalaxy = new MilkyWayGalaxy(60000);
-    expect(reducedGalaxy.mesh.geometry.getAttribute('position').count).toBe(60000);
+  it('correctly adapts particle count on REDUCED (150k) and MINIMAL (50k) tiers', () => {
+    const reducedGalaxy = new MilkyWayGalaxy(150000);
+    expect(reducedGalaxy.mesh.geometry.getAttribute('position').count).toBe(150000);
 
-    const minimalGalaxy = new MilkyWayGalaxy(20000);
-    expect(minimalGalaxy.mesh.geometry.getAttribute('position').count).toBe(20000);
+    const minimalGalaxy = new MilkyWayGalaxy(50000);
+    expect(minimalGalaxy.mesh.geometry.getAttribute('position').count).toBe(50000);
   });
 
-  it('manages uCameraPosition uniform for Phase 3.5 color grading', () => {
+  it('manages uCameraPosition uniform for perspective color grading', () => {
     const galaxy = new MilkyWayGalaxy();
     const camera = new THREE.PerspectiveCamera();
     camera.position.set(0, 140, 0);
@@ -47,6 +47,6 @@ describe('MilkyWayGalaxy Particle Mesh & Shader Integrity', () => {
 
   it('detects default tier when GL context is not provided', () => {
     const tierConfig = detectParticleTier(null);
-    expect(tierConfig.particleBudget).toBeGreaterThanOrEqual(60000);
+    expect(tierConfig.particleBudget).toBe(500000);
   });
 });

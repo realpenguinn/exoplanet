@@ -7,7 +7,7 @@ export interface ParticleTierConfig {
 
 export function detectParticleTier(gl?: WebGLRenderingContext | WebGL2RenderingContext | null): ParticleTierConfig {
   if (typeof window === 'undefined') {
-    return { tier: 'FULL', particleBudget: 150000 };
+    return { tier: 'FULL', particleBudget: 500000 };
   }
 
   // Mobile / Safari detection or missing WebGL2 float blending
@@ -15,20 +15,20 @@ export function detectParticleTier(gl?: WebGLRenderingContext | WebGL2RenderingC
   const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
   if (!gl) {
-    if (isMobile) return { tier: 'REDUCED', particleBudget: 60000 };
-    if (isSafari) return { tier: 'REDUCED', particleBudget: 60000 };
-    return { tier: 'FULL', particleBudget: 150000 };
+    if (isMobile) return { tier: 'REDUCED', particleBudget: 150000 };
+    if (isSafari) return { tier: 'REDUCED', particleBudget: 150000 };
+    return { tier: 'FULL', particleBudget: 500000 };
   }
 
   const isWebGL2 = 'FLOAT' in gl;
   if (!isWebGL2) {
-    return { tier: 'MINIMAL', particleBudget: 20000 };
+    return { tier: 'MINIMAL', particleBudget: 50000 };
   }
 
   const floatBlend = gl.getExtension('EXT_float_blend');
   if (!floatBlend || isMobile) {
-    return { tier: 'REDUCED', particleBudget: 60000 };
+    return { tier: 'REDUCED', particleBudget: 150000 };
   }
 
-  return { tier: 'FULL', particleBudget: 150000 };
+  return { tier: 'FULL', particleBudget: 500000 };
 }
