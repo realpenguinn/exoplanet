@@ -275,6 +275,44 @@ export class CosmoScanApp {
     if (irradianceEl) this.animateValue('valIrradiance', 0, verdict.astrophysicalMetrics.stellarIrradianceRelative, 700, 2, 'x Earth');
   }
 
+  public resetGalaxyView(): void {
+    soundSynth.init();
+    const flightDuration = this.prefersReducedMotion ? 0.15 : 1.8;
+    this.cameraController.flyTo(new THREE.Vector3(0, 140, 170), new THREE.Vector3(0, 0, 0), flightDuration);
+    this.systemRenderer.group.visible = false;
+    if (this.targetNodes) {
+      this.targetNodes.selectionRing.visible = false;
+    }
+
+    const setTxt = (id: string, txt: string) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+
+    setTxt('badgeTargetName', 'MILKY WAY GALAXY');
+    setTxt('badgeTargetType', '(BARRED SPIRAL SBb)');
+    setTxt('targetStarName', 'Galactic Center: Sagittarius A*');
+
+    setTxt('valDistEarth', '26,700 ly (8.18 kpc)');
+    setTxt('valTeff', 'N/A (Galactic Core)');
+    setTxt('valStarRad', '4.3M M☉');
+    setTxt('valPlanetName', 'Galactic Overview');
+    setTxt('valDistStar', '0.00 AU');
+    setTxt('valPeriod', '240 Myr');
+    setTxt('valPlanetRad', '100,000 ly Disk');
+    setTxt('valTransitDepth', '0.00%');
+
+    const titleEl = document.getElementById('verdictTitle');
+    const descEl = document.getElementById('verdictDesc');
+    const disclosureEl = document.getElementById('verdictDisclosure');
+    if (titleEl) {
+      titleEl.textContent = 'Milky Way Galaxy View';
+      titleEl.style.color = '#38bdf8';
+    }
+    if (descEl) descEl.textContent = 'Tap on any highlighted exoplanet system to zoom in. Tap the background space anytime to return to this galactic view.';
+    if (disclosureEl) disclosureEl.textContent = 'Active view: 500,000 Star GPU Point Cloud & 4,600+ Exoplanet Hosts.';
+  }
+
   private bindEvents(): void {
     window.addEventListener('resize', () => {
       const width = window.innerWidth;
@@ -297,15 +335,17 @@ export class CosmoScanApp {
     const btnResetView = document.getElementById('btnResetView');
     if (btnResetView) {
       btnResetView.addEventListener('click', () => {
-        soundSynth.init();
-        this.cameraController.flyTo(new THREE.Vector3(0, 140, 170), new THREE.Vector3(0, 0, 0), this.prefersReducedMotion ? 0.15 : 1.8);
+        this.resetGalaxyView();
       });
     }
 
-    // Canvas pointer raycasting for hover styling and selection
+    // Canvas pointer raycasting for hover styling, target selection, and tap-background-to-return
     const canvas3d = document.getElementById('canvas3d');
     if (canvas3d) {
-      canvas3d.addEventListener('pointermove', (e: MouseEvent) => {
+      let pointerStartX = 0;
+      let pointerStartY = 0;
+
+      canvas3d.addEventListener('pointermove', (e: PointerEvent) => {
         this.cameraController.resetIdleTimer();
         if (!this.targetNodes) return;
         const rect = (e.target as HTMLElement).getBoundingClientRect();
@@ -321,9 +361,23 @@ export class CosmoScanApp {
         }
       });
 
-      canvas3d.addEventListener('pointerdown', (e: MouseEvent) => {
+      canvas3d.addEventListener('pointerdown', (e: PointerEvent) => {
+        if (e.button !== 0) return;
+        pointerStartX = e.clientX;
+        pointerStartY = e.clientY;
         soundSynth.init();
         this.cameraController.resetIdleTimer();
+      });
+
+      canvas3d.addEventListener('pointerup', (e: PointerEvent) => {
+        if (e.button !== 0) return;
+        const dx = e.clientX - pointerStartX;
+        const dy = e.clientY - pointerStartY;
+        const dragDist = Math.hypot(dx, dy);
+
+        // Only process tap/click if user didn't drag/orbit the camera (> 7px)
+        if (dragDist > 7) return;
+
         if (!this.targetNodes) return;
         const rect = (e.target as HTMLElement).getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -334,6 +388,9 @@ export class CosmoScanApp {
         if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
           const sys = this.targetNodes.getSystemAtIndex(intersects[0].instanceId);
           if (sys) this.selectTarget(sys);
+        } else {
+          // Tapped on empty background space -> go back to full galaxy view
+          this.resetGalaxyView();
         }
       });
     }
