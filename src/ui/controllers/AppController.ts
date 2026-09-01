@@ -68,6 +68,7 @@ export class CosmoScanApp {
     });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(dpr);
+    this.renderer.setClearColor(0x030712, 1.0); // Deep cosmic black
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -87,12 +88,12 @@ export class CosmoScanApp {
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    // Selective Coronal Bloom (Half-resolution for 4K performance)
+    // Selective Coronal Bloom (Tamed strength & threshold to prevent blowout)
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width * 0.5, height * 0.5),
-      1.45,  // Strength
-      0.55,  // Radius
-      0.88   // High luminance cutoff
+      0.35,  // Reduced from 1.45 -> prevents massive overexposure
+      0.3,   // Reduced radius from 0.55 -> tighter coronal halo
+      0.98   // Raised threshold from 0.88 -> only extreme HDR highlights bloom
     );
     this.composer.addPass(this.bloomPass);
 

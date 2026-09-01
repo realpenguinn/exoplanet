@@ -10,8 +10,6 @@ export class MilkyWayGalaxy {
     this.totalStars = particleBudget;
     this.geometry = new THREE.BufferGeometry();
 
-    const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.0;
-
     this.material = new THREE.ShaderMaterial({
       vertexShader: `
         attribute float size;
@@ -37,7 +35,7 @@ export class MilkyWayGalaxy {
           );
 
           vec4 mvPosition = modelViewMatrix * vec4(rotatedPos, 1.0);
-          gl_PointSize = size * (320.0 / -mvPosition.z) * ${dpr.toFixed(1)};
+          gl_PointSize = size * (120.0 / -mvPosition.z); // Reduced base scale to prevent point blowout
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -47,8 +45,8 @@ export class MilkyWayGalaxy {
         void main() {
           float d = length(gl_PointCoord - vec2(0.5));
           if (d > 0.5) discard;
-          float alpha = exp(-16.0 * d * d); // Clean Gaussian star point
-          gl_FragColor = vec4(vColor * 1.5, alpha);
+          float alpha = exp(-12.0 * d * d) * 0.7; // Softer point alpha
+          gl_FragColor = vec4(vColor, alpha);
         }
       `,
       uniforms: {
@@ -57,7 +55,7 @@ export class MilkyWayGalaxy {
       },
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending
+      blending: THREE.NormalBlending // NormalBlending eliminates additive blowout across 500k points
     });
 
     this.buildMorphology();
