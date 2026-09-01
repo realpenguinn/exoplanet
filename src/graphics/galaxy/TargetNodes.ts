@@ -29,12 +29,12 @@ export class TargetNodes {
     for (let i = 0; i < count; i++) {
       const sys = systems[i];
 
-      // Physical & Astrometric Apparent Sizing:
-      // Nearer stars appear BIG, farther stars appear SMALL; larger stars appear bigger
+      // Physical & Astrometric Apparent Angular Size Sizing:
+      // Apparent angular size θ ≈ R* / d (nearer stars and larger stars appear prominent)
       const distPc = Math.max(5.0, sys.coordinates.distancePc);
       const starRad = Math.max(0.2, Math.min(3.0, sys.stellarPhysics.radiusSolar));
-      const distFactor = Math.pow(150.0 / distPc, 0.42);
-      const starScale = Math.max(0.35, Math.min(2.4, Math.sqrt(starRad) * distFactor));
+      const angularSize = starRad / (distPc / 1000.0); // R* / d in kpc
+      const starScale = Math.max(0.25, Math.min(2.6, 2.5 * Math.sqrt(angularSize) + 0.3));
 
       this.dummy.position.set(
         sys.coordinates.galacticX,

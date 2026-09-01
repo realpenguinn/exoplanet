@@ -11,6 +11,7 @@ export class PlanetarySystemRenderer {
   public atmosphereMesh!: THREE.Mesh;
   public orbitLine!: THREE.LineLoop;
   public habitableZoneMesh!: THREE.Mesh;
+  public flareSprite?: THREE.Sprite;
 
   private starMaterial!: THREE.ShaderMaterial;
   private planetMaterial!: THREE.MeshStandardMaterial;
@@ -184,6 +185,40 @@ export class PlanetarySystemRenderer {
     const starGeom = new THREE.SphereGeometry(0.85, 128, 128);
     this.starMesh = new THREE.Mesh(starGeom, this.starMaterial);
     this.group.add(this.starMesh);
+
+    // Subtle optical star flare billboard sprite
+    const flareTex = this.createLensFlareTexture();
+    if (flareTex) {
+      const flareMat = new THREE.SpriteMaterial({
+        map: flareTex,
+        transparent: true,
+        opacity: 0.35,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        color: new THREE.Color('#fff0b3')
+      });
+      this.flareSprite = new THREE.Sprite(flareMat);
+      this.flareSprite.scale.set(4.0, 4.0, 1.0);
+      this.starMesh.add(this.flareSprite);
+    }
+  }
+
+  private createLensFlareTexture(): THREE.CanvasTexture | null {
+    if (typeof document === 'undefined') return null;
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+    if (!ctx) return null;
+    const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
+    grad.addColorStop(0.12, 'rgba(255, 220, 140, 0.35)');
+    grad.addColorStop(0.35, 'rgba(255, 160, 60, 0.12)');
+    grad.addColorStop(0.65, 'rgba(255, 100, 20, 0.03)');
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(c);
   }
 
   private initPlanetAndRings(): void {
@@ -279,7 +314,7 @@ export class PlanetarySystemRenderer {
       color: 0x10b981,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.15,
+      opacity: 0.08,
       depthWrite: false
     });
     this.habitableZoneMesh = new THREE.Mesh(hzGeom, hzMat);
@@ -294,89 +329,61 @@ export class PlanetarySystemRenderer {
     if (!this.planetTextureContext || !this.planetTextureCanvas || !this.planetCanvasTexture) return;
 
     const ctx = this.planetTextureContext;
-    const w = this.planetTextureCanvas.width;
-    const h = this.planetTextureCanvas.height;
+    const w = 512;
+    const h = 256;
+    ctx.clearRect(0, 0, w, h);
+
     const teq = system.planetaryPhysics.equilibriumTempKelvin;
     const rad = system.planetaryPhysics.radiusEarth;
 
-    ctx.clearRect(0, 0, w, h);
-
-    if (rad >= 4.0) {
-      // Gas Giant: Atmospheric Storm Bands
-      const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0.0, '#a855f7');
-      gradient.addColorStop(0.2, '#38bdf8');
-      gradient.addColorStop(0.4, '#fb923c');
-      gradient.addColorStop(0.6, '#fef08a');
-      gradient.addColorStop(0.8, '#fdba74');
-      gradient.addColorStop(1.0, '#64748b');
-      ctx.fillStyle = gradient;
+    if (rad > 5.0) {
+      // 1. Gas Giant Biome - Alternating atmospheric zonal bands & equatorial jetstreams
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0.0, '#382b1d');
+      grad.addColorStop(0.2, '#c49b6b');
+      grad.addColorStop(0.4, '#e3be8e');
+      grad.addColorStop(0.6, '#b07b46');
+      grad.addColorStop(0.8, '#82562d');
+      grad.addColorStop(1.0, '#2d1f14');
+      ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
 
-      // Add turbulence streaks
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      for (let y = 10; y < h; y += 18) {
-        ctx.fillRect(0, y, w, 6);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      for (let y = 10; y < h; y += 14) {
+        ctx.fillRect(0, y, w, 4);
       }
-    } else if (teq > 340) {
-      // Hot Volcanic World: Obsidian Crust with Magma Fissures
-      ctx.fillStyle = '#18181b';
+    } else if (teq > 350) {
+      // 2. Volcanic / Molten World - Basaltic crust with incandescent magma fractures
+      ctx.fillStyle = '#1c1917';
       ctx.fillRect(0, 0, w, h);
-
-      ctx.strokeStyle = '#ea580c';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      for (let i = 0; i < 8; i++) {
-        const startX = Math.random() * w;
-        ctx.moveTo(startX, 0);
-        ctx.bezierCurveTo(startX + 40, h * 0.3, startX - 40, h * 0.7, startX + 20, h);
-      }
-      ctx.stroke();
-
       ctx.strokeStyle = '#f97316';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    } else if (teq < 180) {
-      // Cryo Ice World: Glacial Crust with Polar Caps
-      const gradient = ctx.createLinearGradient(0, 0, 0, h);
-      gradient.addColorStop(0.0, '#ffffff');
-      gradient.addColorStop(0.3, '#38bdf8');
-      gradient.addColorStop(0.5, '#0284c7');
-      gradient.addColorStop(0.7, '#38bdf8');
-      gradient.addColorStop(1.0, '#ffffff');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, w, h);
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.lineWidth = 1.5;
-      for (let i = 0; i < 12; i++) {
-        ctx.beginPath();
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
         ctx.moveTo(Math.random() * w, Math.random() * h);
         ctx.lineTo(Math.random() * w, Math.random() * h);
-        ctx.stroke();
       }
+      ctx.stroke();
+    } else if (teq < 210) {
+      // 3. Ice World - Glaciated frozen crust with nitrogen/methane sheets
+      ctx.fillStyle = '#e0f2fe';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#bae6fd';
+      ctx.fillRect(0, 40, w, 20);
+      ctx.fillRect(0, 180, w, 30);
     } else {
-      // Habitable World: Azure Oceans, Emerald Continents, White Ice Caps
-      ctx.fillStyle = '#0f3854'; // Deep ocean
+      // 4. Terrestrial Habitable World - Azure oceans, continental landmasses, cloud swirls
+      ctx.fillStyle = '#0284c7'; // Deep Ocean
       ctx.fillRect(0, 0, w, h);
 
-      // Procedural continents
-      ctx.fillStyle = '#2d6a4f';
-      for (let c = 0; c < 5; c++) {
-        const cx = (c / 5) * w + (Math.random() - 0.5) * 60;
-        const cy = h * 0.5 + (Math.random() - 0.5) * 50;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 45 + Math.random() * 25, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      ctx.fillStyle = '#15803d'; // Green Landmasses
+      ctx.beginPath();
+      ctx.arc(w * 0.25, h * 0.45, 45, 0, Math.PI * 2);
+      ctx.arc(w * 0.65, h * 0.55, 55, 0, Math.PI * 2);
+      ctx.fill();
 
-      // Polar Ice Caps
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(0, 0, w, 24);
-      ctx.fillRect(0, h - 24, w, 24);
-
-      // Cloud swirls
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+      // Atmospheric Cloud Swirls
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.beginPath();
       ctx.arc(w * 0.3, h * 0.4, 50, 0, Math.PI * 2);
       ctx.arc(w * 0.7, h * 0.6, 60, 0, Math.PI * 2);
@@ -404,9 +411,16 @@ export class PlanetarySystemRenderer {
     const visualStarRadius = Math.max(0.45, Math.min(1.4, system.stellarPhysics.radiusSolar * 0.45));
     this.starMesh.scale.setScalar(visualStarRadius);
 
-    // Physical Planetary Radius Sizing:
-    // Prominent, clearly visible (Earth ~ 0.38, Gas Giant ~ 0.85)
-    const visualPlanetRadius = Math.max(0.35, Math.min(0.85, 0.28 + Math.sqrt(system.planetaryPhysics.radiusEarth) * 0.16));
+    if (this.flareSprite) {
+      (this.flareSprite.material as THREE.SpriteMaterial).color.copy(starColor);
+      this.flareSprite.scale.set(visualStarRadius * 4.2, visualStarRadius * 4.2, 1.0);
+    }
+
+    // Planet-to-Star Visual Sizing: physically grounded proportion (Jupiter ~1/10th Sun, Earth ~1/100th)
+    const starRadius = system.stellarPhysics.radiusSolar;
+    const planetRadius = system.planetaryPhysics.radiusEarth;
+    const radiusRatio = (planetRadius * 0.009158) / starRadius; // Rp / R* in Solar units
+    const visualPlanetRadius = Math.max(0.20, Math.min(0.70, radiusRatio * 3.5 + 0.16));
     this.planetMesh.scale.setScalar(visualPlanetRadius);
 
     // Generate procedural surface texture for this world
@@ -415,10 +429,10 @@ export class PlanetarySystemRenderer {
     // Conditional Ring System: Display rings only for Gas Giants (R > 6.0 Earth Radii)
     this.ringMesh.visible = system.planetaryPhysics.radiusEarth > 6.0;
 
-    // Physical Orbit Scaling:
-    // Ensure planet orbit is comfortably clear of the star surface by at least 2.5 units
+    // Physical Orbit Scaling: Logarithmic scale for wide dynamic range
+    const a = system.planetaryPhysics.semiMajorAxisAU;
     const starWorldRadius = visualStarRadius * 0.85;
-    const orbitRadius = Math.max(starWorldRadius + 2.5, Math.min(9.5, starWorldRadius + 2.0 + Math.sqrt(system.planetaryPhysics.semiMajorAxisAU) * 3.6));
+    const orbitRadius = Math.max(starWorldRadius + 2.2, Math.min(12.0, 2.5 + 3.8 * Math.log10(a / 0.05 + 1.0)));
     const points: THREE.Vector3[] = [];
     for (let i = 0; i <= 64; i++) {
       const theta = (i / 64) * Math.PI * 2;
@@ -448,8 +462,9 @@ export class PlanetarySystemRenderer {
     const speed = (2.0 * Math.PI) / Math.max(1.0, this.currentSystem.planetaryPhysics.periodDays * 0.1);
     this.orbitalAngle += speed * deltaTime;
 
+    const a = this.currentSystem.planetaryPhysics.semiMajorAxisAU;
     const starWorldRadius = (this.starMesh.scale.x || 1.0) * 0.85;
-    const orbitRadius = Math.max(starWorldRadius + 2.5, Math.min(9.5, starWorldRadius + 2.0 + Math.sqrt(this.currentSystem.planetaryPhysics.semiMajorAxisAU) * 3.6));
+    const orbitRadius = Math.max(starWorldRadius + 2.2, Math.min(12.0, 2.5 + 3.8 * Math.log10(a / 0.05 + 1.0)));
     const px = Math.cos(this.orbitalAngle) * orbitRadius;
     const pz = Math.sin(this.orbitalAngle) * orbitRadius;
     this.planetMesh.position.set(px, 0, pz);
@@ -505,6 +520,8 @@ export class PlanetarySystemRenderer {
     this.ringMesh.geometry.dispose();
     this.atmosphereMesh.geometry.dispose();
     this.atmosphereMaterial.dispose();
+    this.flareSprite?.geometry.dispose();
+    (this.flareSprite?.material as THREE.Material)?.dispose();
     this.stellarLight.dispose();
   }
 }

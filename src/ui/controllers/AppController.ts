@@ -49,6 +49,33 @@ const FilmVignetteShader = {
   `
 };
 
+// Subtle Edge Chromatic Aberration Shader
+const ChromaticAberrationShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uOffset: { value: 0.0012 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uOffset;
+    varying vec2 vUv;
+
+    void main() {
+      float r = texture2D(tDiffuse, vUv + vec2(uOffset, 0.0)).r;
+      float g = texture2D(tDiffuse, vUv).g;
+      float b = texture2D(tDiffuse, vUv - vec2(uOffset, 0.0)).b;
+      gl_FragColor = vec4(r, g, b, 1.0);
+    }
+  `
+};
+
 export class CosmoScanApp {
   private scene: THREE.Scene;
   private camera: THREE.PerspectiveCamera;
@@ -56,6 +83,7 @@ export class CosmoScanApp {
   private composer!: EffectComposer;
   private bloomPass!: UnrealBloomPass;
   private filmVignettePass!: ShaderPass;
+  private chromaticPass!: ShaderPass;
   private smaaPass!: SMAAPass;
   private controls: OrbitControls;
   private galaxy: MilkyWayGalaxy;
@@ -70,8 +98,8 @@ export class CosmoScanApp {
   private clock = new THREE.Clock();
   private raycaster = new THREE.Raycaster();
   private mouse = new THREE.Vector2();
-  private prefersReducedMotion = false;
   private lastTransitState = false;
+  private prefersReducedMotion = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -82,6 +110,9 @@ export class CosmoScanApp {
     if (!canvas3d) throw new Error('Missing #canvas3d element in DOM');
 
     this.scene = new THREE.Scene();
+    // Depth perception: fades distant arms and stars into deep cosmic void
+    this.scene.fog = new THREE.FogExp2(0x030712, 0.0035);
+
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
     this.camera.position.set(0, 140, 170);
 
@@ -89,11 +120,11 @@ export class CosmoScanApp {
     const height = window.innerHeight;
     const dpr = Math.min(window.devicePixelRatio || 1, 2.0);
 
-    // 1. 4K WebGL2 Renderer Setup
+    // 1. 4K WebGL2 Renderer Setup with Native MSAA Antialiasing
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas3d,
       powerPreference: 'high-performance',
-      antialias: false,
+      antialias: true, // Native MSAA on canvas for razor-sharp edges
       stencil: false,
       depth: true
     });
@@ -127,6 +158,10 @@ export class CosmoScanApp {
       0.97   // High luminance cutoff
     );
     this.composer.addPass(this.bloomPass);
+
+    // Subtle Edge Chromatic Aberration Pass
+    this.chromaticPass = new ShaderPass(ChromaticAberrationShader);
+    this.composer.addPass(this.chromaticPass);
 
     // Cinematic Film Grain & Vignette Pass
     this.filmVignettePass = new ShaderPass(FilmVignetteShader);

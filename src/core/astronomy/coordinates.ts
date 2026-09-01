@@ -73,9 +73,17 @@ export class CoordinateTransformer {
     // Stefan-Boltzmann Luminosity: L/L_sun = (R/R_sun)^2 * (T/T_sun)^4
     const luminositySolar = Math.pow(starRad, 2) * Math.pow(starTeff / 5778.0, 4);
 
-    // Planetary equilibrium temperature with 0.3 Bond albedo
     const aInSolarRadii = semiMajorAxisAU * 215.032;
-    const teqKelvin = starTeff * Math.sqrt(starRad / (2.0 * aInSolarRadii)) * Math.pow(1.0 - 0.3, 0.25);
+    const baseTeq = starTeff * Math.sqrt(starRad / (2.0 * aInSolarRadii)) * Math.pow(1.0 - 0.3, 0.25);
+
+    // Planetary equilibrium temperature with configurable Bond albedo based on planetary regime
+    let bondAlbedo = 0.3;
+    if (planetRade > 6.0) bondAlbedo = 0.5;      // Gas giants (Jupiter-like cloud reflection)
+    else if (planetRade > 2.0) bondAlbedo = 0.35; // Ice giants / sub-Neptunes
+    else if (baseTeq > 250) bondAlbedo = 0.2;    // Hot rocky worlds (basaltic/volcanic)
+    else bondAlbedo = 0.25;                       // Temperate rocky worlds
+
+    const teqKelvin = starTeff * Math.sqrt(starRad / (2.0 * aInSolarRadii)) * Math.pow(1.0 - bondAlbedo, 0.25);
 
     // Transit depth (Rp / R*)^2
     // pl_trandep is null in ~84% of records. The theoretical dip is the PRIMARY computational path,
@@ -85,8 +93,13 @@ export class CoordinateTransformer {
     const theoreticalDipPercent = Math.pow(planetRadKm / starRadKm, 2) * 100.0;
     const transitDepth = raw.pl_trandep && raw.pl_trandep > 0 ? raw.pl_trandep : theoreticalDipPercent;
 
-    // Transit duration (hours)
-    const transitDurationHours = (periodDays * 24.0 / Math.PI) * Math.asin(Math.min(1.0, (starRad * 0.00465) / semiMajorAxisAU));
+    // Physically correct transit duration (T14) with central transit impact parameter b ≈ 0.5:
+    // T14 = (P / π) * arcsin[(R* + Rp) / a] * sqrt(1 - b²)
+    const impactParameter = 0.5;
+    const sumOfRadiiAU = (starRad + planetRade * 0.009158) / 215.032; // convert Solar & Earth radii to AU
+    const geometricFactor = Math.sqrt(1.0 - impactParameter * impactParameter);
+    const transitDurationHours = (periodDays * 24.0 / Math.PI) *
+      Math.asin(Math.min(1.0, sumOfRadiiAU / semiMajorAxisAU)) * geometricFactor;
 
     // Astrobiological habitability classification (180K - 320K equilibrium temp account for greenhouse warming)
     let habClass: ExoplanetSystem['planetaryPhysics']['habitableZoneClass'] = 'GAS_GIANT_NON_TERRESTRIAL';
@@ -100,7 +113,10 @@ export class CoordinateTransformer {
       }
     }
 
-    const colorHex = this.kelvinToHex(starTeff);
+    // Color: Gaia BP-RP color index when present, otherwise stellar effective temperature Planck blackbody
+    const colorHex = gaia?.bpRp !== undefined && gaia.bpRp !== null
+      ? this.bpRpToHex(gaia.bpRp)
+      : this.kelvinToHex(starTeff);
     const spectralType = this.inferSpectralType(starTeff);
 
     const system: ExoplanetSystem = {
@@ -166,6 +182,13 @@ export class CoordinateTransformer {
 
     const toHex = (c: number) => Math.round(c).toString(16).padStart(2, '0');
     return `#${toHex(red)}${toHex(green)}${toHex(blue)}`;
+  }
+
+  public static bpRpToHex(bpRp: number): string {
+    // Gaia BP-RP to approximate effective temperature mapping
+    // bpRp ~ 0.0 => hot blue (~10,000K), bpRp ~ 0.8 => Sun-like (~5,800K), bpRp ~ 2.0 => cool red (~3,500K)
+    const teff = 10000.0 * Math.pow(10.0, -0.4 * bpRp) + 3000.0;
+    return this.kelvinToHex(Math.min(40000.0, Math.max(2000.0, teff)));
   }
 
   public static inferSpectralType(temp: number): string {

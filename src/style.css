@@ -31,6 +31,20 @@ body, html {
   color: var(--text-primary);
   user-select: none;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.hud-panel, .hud-header, .hud-main {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.tel-val, .chip-value, .metric-value, .badge-target, .quick-target-list button {
+  /* Prevent subpixel blur on dynamic numeric values */
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 /* Accessibility utility */
