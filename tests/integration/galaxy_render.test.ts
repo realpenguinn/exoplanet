@@ -15,13 +15,16 @@ describe('MilkyWayGalaxy 500,000 Particle Mesh & Shader Integrity', () => {
     const galaxy = new MilkyWayGalaxy();
     const colorAttr = galaxy.mesh.geometry.getAttribute('color');
     const sizeAttr = galaxy.mesh.geometry.getAttribute('size');
+    const twinkleAttr = galaxy.mesh.geometry.getAttribute('aTwinkle');
 
     expect(colorAttr.count).toBe(500000);
     expect(sizeAttr.count).toBe(500000);
+    expect(twinkleAttr.count).toBe(500000);
 
     for (let i = 0; i < 1000; i++) {
       expect(sizeAttr.getX(i)).toBeGreaterThan(0.0);
       expect(colorAttr.getX(i)).toBeLessThanOrEqual(1.5);
+      expect(twinkleAttr.getX(i)).toBeGreaterThanOrEqual(0.0);
     }
   });
 

@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { SMAAPass } from 'three/examples/jsm/postprocessing/SMAAPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { MilkyWayGalaxy } from '../../graphics/galaxy/MilkyWay';
@@ -15,9 +16,38 @@ import { ScientificVerdictEngine } from '../../core/physics/VerdictEngine';
 import { CoordinateTransformer } from '../../core/astronomy/coordinates';
 import { detectParticleTier } from '../../graphics/galaxy/particleTier';
 import { PerformanceSampler } from '../../observability/perfSampler';
+import { soundSynth } from '../../audio/SoundSynthesizer';
 import { logger } from '../../observability/logger';
 import { ExoplanetSystem, RawExoplanetRecord } from '../../types/astronomy';
 import rawCatalogData from '../../assets/data/exoplanet_catalog.json';
+
+// Film Grain & Vignette Cinematic Shader
+const FilmVignetteShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTime: { value: 0 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float uTime;
+    varying vec2 vUv;
+
+    void main() {
+      vec4 tex = texture2D(tDiffuse, vUv);
+      vec2 coord = (vUv - 0.5) * 2.0;
+      float vignette = 1.0 - dot(coord, coord) * 0.20;
+      float grain = (fract(sin(dot(vUv, vec2(12.9898, 78.233)) + uTime * 0.08) * 43758.5453) - 0.5) * 0.022;
+      gl_FragColor = vec4(tex.rgb * vignette + grain, tex.a);
+    }
+  `
+};
 
 export class CosmoScanApp {
   private scene: THREE.Scene;
@@ -25,6 +55,7 @@ export class CosmoScanApp {
   private renderer: THREE.WebGLRenderer;
   private composer!: EffectComposer;
   private bloomPass!: UnrealBloomPass;
+  private filmVignettePass!: ShaderPass;
   private smaaPass!: SMAAPass;
   private controls: OrbitControls;
   private galaxy: MilkyWayGalaxy;
@@ -62,7 +93,7 @@ export class CosmoScanApp {
     this.renderer = new THREE.WebGLRenderer({
       canvas: canvas3d,
       powerPreference: 'high-performance',
-      antialias: false, // Handled downstream by SMAAPass
+      antialias: false,
       stencil: false,
       depth: true
     });
@@ -88,14 +119,18 @@ export class CosmoScanApp {
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    // Selective Coronal Bloom (Tamed strength & threshold to prevent blowout)
+    // Selective Coronal Bloom
     this.bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width * 0.5, height * 0.5),
-      0.35,  // Reduced from 1.45 -> prevents massive overexposure
-      0.3,   // Reduced radius from 0.55 -> tighter coronal halo
-      0.98   // Raised threshold from 0.88 -> only extreme HDR highlights bloom
+      0.35,  // Dynamic strength adapted in render loop
+      0.32,  // Radius
+      0.96   // High luminance cutoff
     );
     this.composer.addPass(this.bloomPass);
+
+    // Cinematic Film Grain & Vignette Pass
+    this.filmVignettePass = new ShaderPass(FilmVignetteShader);
+    this.composer.addPass(this.filmVignettePass);
 
     // 4K SMAA Subpixel Anti-Aliasing
     this.smaaPass = new SMAAPass(width * dpr, height * dpr);
@@ -136,9 +171,10 @@ export class CosmoScanApp {
     this.exoplanetData = rawRecords.map((r, i) => CoordinateTransformer.transformRecord(r, i));
     this.searchIndex.indexSystems(this.exoplanetData);
 
-    // Instanced Clickable Target Nodes Layer
+    // Instanced Clickable Target Nodes Layer with Selection Ring
     this.targetNodes = new TargetNodes(this.exoplanetData);
     this.scene.add(this.targetNodes.instancedMesh);
+    this.scene.add(this.targetNodes.selectionRing);
 
     const elCounter = document.getElementById('totalLoadedStars');
     if (elCounter) elCounter.textContent = `${this.exoplanetData.length.toLocaleString()} Indexed Hosts`;
@@ -153,6 +189,10 @@ export class CosmoScanApp {
   public selectTarget(system: ExoplanetSystem): void {
     this.currentSystem = system;
     this.systemRenderer.loadSystem(system);
+    this.targetNodes?.setSelection(system);
+
+    // Spatial sound chime
+    soundSynth.playTargetSelect(this.mouse.x);
 
     const targetPos = new THREE.Vector3(
       system.coordinates.galacticX,
@@ -164,6 +204,33 @@ export class CosmoScanApp {
 
     this.cameraController.flyTo(cameraDest, targetPos, flightDuration);
     this.updateHUD(system);
+
+    // HUD Glitch Transition Pulse
+    const hudContainer = document.querySelector('.hud-container');
+    if (hudContainer) {
+      hudContainer.classList.add('hud-glitch-active');
+      setTimeout(() => hudContainer.classList.remove('hud-glitch-active'), 180);
+    }
+  }
+
+  /**
+   * Smooth animated number roll-up for telemetry data
+   */
+  private animateValue(id: string, start: number, end: number, duration: number, decimals: number, suffix = ''): void {
+    const obj = document.getElementById(id);
+    if (!obj) return;
+    if (this.prefersReducedMotion) {
+      obj.textContent = `${end.toFixed(decimals)}${suffix}`;
+      return;
+    }
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const elapsed = Math.min((now - startTime) / duration, 1.0);
+      const current = start + (end - start) * (1 - Math.pow(1 - elapsed, 3)); // ease-out cubic
+      obj.textContent = `${current.toFixed(decimals)}${suffix}`;
+      if (elapsed < 1.0) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   private updateHUD(system: ExoplanetSystem): void {
@@ -175,15 +242,17 @@ export class CosmoScanApp {
     setTxt('badgeTargetName', system.planetName.toUpperCase());
     setTxt('badgeTargetType', `(${system.stellarPhysics.spectralType} Main Sequence)`);
     setTxt('targetStarName', `Host Star: ${system.hostName}`);
-    setTxt('valDistEarth', `${system.coordinates.distanceLy.toFixed(1)} ly (${system.coordinates.distancePc.toFixed(1)} pc)`);
-    setTxt('valTeff', `${system.stellarPhysics.teffKelvin.toFixed(0)} K`);
-    setTxt('valStarRad', `${system.stellarPhysics.radiusSolar.toFixed(2)} R☉`);
+
+    // Rolling animated metrics
+    this.animateValue('valDistEarth', 0, system.coordinates.distanceLy, 700, 1, ` ly (${system.coordinates.distancePc.toFixed(1)} pc)`);
+    this.animateValue('valTeff', 0, system.stellarPhysics.teffKelvin, 700, 0, ' K');
+    this.animateValue('valStarRad', 0, system.stellarPhysics.radiusSolar, 700, 2, ' R☉');
 
     setTxt('valPlanetName', system.planetName);
-    setTxt('valDistStar', `${system.planetaryPhysics.semiMajorAxisAU.toFixed(3)} AU`);
-    setTxt('valPeriod', `${system.planetaryPhysics.periodDays.toFixed(2)} Days`);
-    setTxt('valPlanetRad', `${system.planetaryPhysics.radiusEarth.toFixed(2)} R⊕`);
-    setTxt('valTransitDepth', `${system.planetaryPhysics.transitDepthPercent.toFixed(3)}%`);
+    this.animateValue('valDistStar', 0, system.planetaryPhysics.semiMajorAxisAU, 700, 3, ' AU');
+    this.animateValue('valPeriod', 0, system.planetaryPhysics.periodDays, 700, 2, ' Days');
+    this.animateValue('valPlanetRad', 0, system.planetaryPhysics.radiusEarth, 700, 2, ' R⊕');
+    this.animateValue('valTransitDepth', 0, system.planetaryPhysics.transitDepthPercent, 700, 3, '%');
 
     const verdict = ScientificVerdictEngine.evaluateSystem(system);
     const titleEl = document.getElementById('verdictTitle');
@@ -198,8 +267,8 @@ export class CosmoScanApp {
     }
     if (descEl) descEl.textContent = verdict.description;
     if (disclosureEl) disclosureEl.textContent = verdict.calculationDisclosure;
-    if (densityEl) densityEl.textContent = `${verdict.astrophysicalMetrics.densityEstimateGcm3.toFixed(2)} g/cm³`;
-    if (irradianceEl) irradianceEl.textContent = `${verdict.astrophysicalMetrics.stellarIrradianceRelative.toFixed(2)}x Earth`;
+    if (densityEl) this.animateValue('valDensity', 0, verdict.astrophysicalMetrics.densityEstimateGcm3, 700, 2, ' g/cm³');
+    if (irradianceEl) this.animateValue('valIrradiance', 0, verdict.astrophysicalMetrics.stellarIrradianceRelative, 700, 2, 'x Earth');
   }
 
   private bindEvents(): void {
@@ -224,14 +293,33 @@ export class CosmoScanApp {
     const btnResetView = document.getElementById('btnResetView');
     if (btnResetView) {
       btnResetView.addEventListener('click', () => {
+        soundSynth.init();
         this.cameraController.flyTo(new THREE.Vector3(0, 140, 170), new THREE.Vector3(0, 0, 0), this.prefersReducedMotion ? 0.15 : 1.8);
       });
     }
 
-    // Canvas click raycasting for TargetNodes
+    // Canvas pointer raycasting for hover styling and selection
     const canvas3d = document.getElementById('canvas3d');
     if (canvas3d) {
+      canvas3d.addEventListener('pointermove', (e: MouseEvent) => {
+        this.cameraController.resetIdleTimer();
+        if (!this.targetNodes) return;
+        const rect = (e.target as HTMLElement).getBoundingClientRect();
+        this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        this.raycaster.setFromCamera(this.mouse, this.camera);
+        const intersects = this.raycaster.intersectObject(this.targetNodes.instancedMesh);
+        if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
+          canvas3d.style.cursor = 'pointer';
+        } else {
+          canvas3d.style.cursor = 'default';
+        }
+      });
+
       canvas3d.addEventListener('pointerdown', (e: MouseEvent) => {
+        soundSynth.init();
+        this.cameraController.resetIdleTimer();
         if (!this.targetNodes) return;
         const rect = (e.target as HTMLElement).getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -256,6 +344,7 @@ export class CosmoScanApp {
       searchResults.setAttribute('role', 'listbox');
 
       searchInput.addEventListener('input', (e) => {
+        soundSynth.init();
         const target = e.target as HTMLInputElement;
         const matches = this.searchIndex.search(target.value);
 
@@ -295,18 +384,26 @@ export class CosmoScanApp {
     }
   }
 
-  // 60 FPS Master Render Loop with Post-Processing Pipeline
+  // 60 FPS Master Render Loop with Adaptive Post-Processing Pipeline
   private animate = (): void => {
     requestAnimationFrame(this.animate);
 
     // Delta clamping: Max 0.1s prevents physics integration explosions
     const delta = Math.min(this.clock.getDelta(), 0.1);
+    const elapsedTime = this.clock.getElapsedTime();
 
     try {
       this.galaxy.update(delta);
       this.galaxy.updateCameraPosition(this.camera);
       this.cameraController.update(delta);
-      const { isTransiting, flux } = this.systemRenderer.update(delta);
+      this.targetNodes?.update(delta, this.camera);
+
+      const { isTransiting, flux } = this.systemRenderer.update(delta, this.camera);
+
+      // Web Audio Sonification & Ambient Atmosphere
+      const distToCore = this.camera.position.length();
+      soundSynth.updateDronePitch(distToCore);
+      soundSynth.setTransitModulation(isTransiting);
 
       if (this.currentSystem) {
         this.lightCurve.pushFlux(flux, this.currentSystem.planetaryPhysics.transitDepthPercent);
@@ -325,6 +422,16 @@ export class CosmoScanApp {
       }
 
       this.controls.update();
+
+      // Dynamic Context-Aware Bloom Curve
+      // When close to stellar system (< 40 units), bloom up to 0.52 for rich corona
+      // When far away viewing 500k galaxy stars (> 120 units), tone down to 0.24 to prevent blowout
+      const camTargetDist = this.camera.position.distanceTo(this.systemRenderer.group.position);
+      const bloomFactor = THREE.MathUtils.clamp((130.0 - camTargetDist) / 100.0, 0.0, 1.0);
+      this.bloomPass.strength = THREE.MathUtils.lerp(0.24, 0.52, bloomFactor);
+
+      // Update Film Grain Shader Time Uniform
+      this.filmVignettePass.uniforms.uTime.value = elapsedTime;
 
       // Post-Processing Cinematic Render Pass
       this.composer.render();
