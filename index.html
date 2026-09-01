@@ -3,801 +3,219 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Exoplanet Transit Photometry & Habitable World Analyzer (Top-Tier Science Fair Edition)</title>
-  <meta name="description" content="State-of-the-art astrophysics research tool and interactive simulation for discovering alien worlds via NASA Kepler, TESS, and JWST transit photometry.">
+  <title>CosmoScan — Exoplanet Data Analyzer & 3D Milky Way Suite</title>
+  <meta name="description" content="Production-grade exoplanet data analyzer, 150,000 particle 3D Milky Way simulation, Mandel-Agol photometric transit stream, and astrobiological habitability classifier.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 </head>
 <body>
-  <!-- Ambient Space Dust & Nebula Particles Background -->
-  <div class="stars-bg"></div>
-  <div class="glow-orb orb-1"></div>
-  <div class="glow-orb orb-2"></div>
-  <div class="glow-orb orb-3"></div>
+  <!-- Visually Hidden Accessible Live Telemetry Announcer for Screen Readers -->
+  <div id="liveFluxAnnouncement" aria-live="polite" class="sr-only"></div>
 
-  <!-- Confetti Canvas for High-Score Habitability Celebrations -->
-  <canvas id="confettiCanvas"></canvas>
+  <!-- Fatal Startup Error Boundary Fallback Screen -->
+  <div id="fallbackScreen" class="fallback-screen" style="display: none;" role="alert">
+    <div class="fallback-card">
+      <div class="fallback-icon">⚠️</div>
+      <h2>CosmoScan Diagnostic Initialization Notice</h2>
+      <p>A WebGL or graphic acceleration requirement could not be initialized on this browser profile.</p>
+      <div id="fallbackErrorMsg" class="fallback-error-box"></div>
+      <div class="fallback-actions">
+        <button class="btn btn-primary" onclick="window.location.reload()">Reload Application</button>
+      </div>
+    </div>
+  </div>
 
-  <div class="app-container">
-    <!-- Top Navigation Header -->
-    <header class="main-header">
+  <!-- Fullscreen 3D WebGL Canvas Viewport -->
+  <canvas id="canvas3d" class="canvas-3d" aria-label="Interactive 3D Milky Way Galaxy Simulation and Exoplanetary System View"></canvas>
+
+  <!-- HUD Overlay Container -->
+  <div class="hud-container">
+    <!-- Top Header -->
+    <header class="hud-header" role="banner">
       <div class="header-left">
-        <div class="logo-mark">
-          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="18" cy="18" r="16" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="3 3"/>
-            <circle cx="18" cy="18" r="9" fill="url(#star-core-grad)"/>
-            <circle cx="26" cy="12" r="3.5" fill="#38bdf8"/>
-            <ellipse cx="18" cy="18" rx="14" ry="5.5" stroke="rgba(56, 189, 248, 0.5)" stroke-width="1"/>
-            <defs>
-              <radialGradient id="star-core-grad" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stop-color="#ffffff" />
-                <stop offset="50%" stop-color="#fbbf24" />
-                <stop offset="100%" stop-color="#f97316" />
-              </radialGradient>
-            </defs>
+        <div class="logo-box">
+          <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+            <circle cx="18" cy="18" r="16" stroke="#00f2fe" stroke-width="1.5" stroke-dasharray="3 3"/>
+            <circle cx="18" cy="18" r="8" fill="#ffd700"/>
+            <circle cx="26" cy="12" r="3" fill="#00f2fe"/>
           </svg>
-        </div>
-        <div>
-          <div class="title-badge-row">
-            <h1 class="project-title">EXOPLANET DATA ANALYZER</h1>
-            <span class="version-tag">NASA RESEARCH TIER • 100% VERIFIED</span>
+          <div>
+            <h1 class="hud-title">COSMOSCAN</h1>
+            <span class="hud-tag">NASA & GAIA DR3 ARCHIVES</span>
           </div>
-          <p class="project-subtitle">NASA Kepler/TESS Transit Photometry • JWST NIRSpec Atmospheric Spectroscopy • Habitable World Classifier</p>
         </div>
       </div>
 
+      <!-- Center: Active Target Badge -->
       <div class="header-center">
-        <div class="target-badge" id="headerTargetBadge">
-          <span class="pulse-dot"></span>
-          <span class="badge-label">ACTIVE TARGET:</span>
-          <span class="badge-val" id="badgeTargetName">KEPLER-452b</span>
-          <span class="badge-type" id="badgeTargetType">(G2V Solar Analog)</span>
+        <div class="target-chip">
+          <span class="pulse-indicator"></span>
+          <span class="chip-label">TARGET:</span>
+          <span id="badgeTargetName" class="chip-value">KEPLER-186 F</span>
+          <span id="badgeTargetType" class="chip-type">(M1 Main Sequence)</span>
         </div>
       </div>
 
+      <!-- Right: Search Bar & Telemetry Status -->
       <div class="header-right">
-        <!-- Audio Telemetry Toggle -->
-        <button class="btn btn-icon" id="btnAudioToggle" title="Toggle Sci-Fi Audio Telemetry">
-          <svg id="audioOnIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-          <svg id="audioOffIcon" class="hidden" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-          <span id="audioText">Sound: ON</span>
-        </button>
-
-        <!-- Quick 60s Judge Tour -->
-        <button class="btn btn-accent" id="btnJudgeTour">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Judge 60s Tour
-        </button>
-
-        <!-- Exoplanet Leaderboard -->
-        <button class="btn btn-secondary" id="btnLeaderboard">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Catalog Matrix
-        </button>
-
-        <!-- Comprehensive Report & Guide -->
-        <button class="btn btn-secondary" id="btnJudgeGuide">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          Formulas & Guide
-        </button>
-
-        <!-- Print/Export PDF -->
-        <button class="btn btn-primary" id="btnExportReport">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Mission Dossier
-        </button>
+        <div class="search-box">
+          <label for="searchInput" class="sr-only">Search exoplanets</label>
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Search 4,600+ exoplanets..."
+            autocomplete="off"
+            aria-autocomplete="list"
+          />
+          <div id="searchResults" class="search-dropdown" style="display: none;"></div>
+        </div>
+        <div class="hud-metric-pill" title="Total Confirmed Systems Loaded">
+          <span id="totalLoadedStars">4,606 Indexed Hosts</span>
+        </div>
+        <div class="hud-metric-pill fps-pill" title="Steady State Rendering Rate">
+          <span id="fpsCounter">60 FPS</span>
+        </div>
       </div>
     </header>
 
-    <!-- Main Grid Dashboard -->
-    <main class="dashboard-grid">
-      
-      <!-- Top Left: Light Curve Photometer + Spectroscopy Tabs + Optical/IR Band Switcher -->
-      <section class="card light-curve-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <span class="card-icon cyan-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            </span>
-            <div>
-              <h2 class="card-title">REAL-TIME TRANSIT LIGHT CURVE (PHOTOMETRY)</h2>
-              <p class="card-desc">Stellar flux vs. time with quadratic limb darkening & contact markers</p>
-            </div>
-          </div>
-
-          <div class="tab-switcher">
-            <button class="tab-btn active" id="tabLightCurve">Transit Light Curve</button>
-            <button class="tab-btn" id="tabSpectroscopy">JWST Atmosphere Spectrum</button>
-          </div>
-
-          <div class="card-actions" id="lcActions">
-            <!-- Filter Band Selector -->
-            <div class="filter-band-wrap">
-              <span class="fb-lbl">Filter:</span>
-              <select id="selectFilterBand" class="filter-select">
-                <option value="optical">Optical (V-Band)</option>
-                <option value="infrared">Infrared (JWST/NIRCam)</option>
-                <option value="uv">Ultraviolet (Rayleigh)</option>
-              </select>
-            </div>
-
-            <label class="toggle-control">
-              <input type="checkbox" id="toggleNoise" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Photon Noise</span>
-            </label>
-            <label class="toggle-control">
-              <input type="checkbox" id="toggleFitLine" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Mandel-Agol Fit</span>
-            </label>
-            <label class="toggle-control">
-              <input type="checkbox" id="toggleLimbDarkening" checked>
-              <span class="toggle-slider"></span>
-              <span class="toggle-text">Limb Darkening</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Canvas Container -->
-        <div class="canvas-wrapper">
-          <canvas id="lightCurveCanvas" width="720" height="290"></canvas>
-          <canvas id="spectrumCanvas" class="hidden" width="720" height="290"></canvas>
-
-          <div class="transit-state-indicator" id="transitIndicator">
-            <span class="dot"></span> <span id="transitStateText">OUT OF TRANSIT</span>
-          </div>
-
-          <div class="contact-points-badge" id="contactBadge">
-            <span class="cp-item" id="cp1">t₁: Ingress Start</span>
-            <span class="cp-item" id="cp2">t₂: Full Transit</span>
-            <span class="cp-item" id="cp3">t₃: Egress Start</span>
-            <span class="cp-item" id="cp4">t₄: Transit End</span>
-          </div>
-        </div>
-
-        <div class="graph-legend">
-          <div class="legend-item"><span class="legend-dot dot-flux"></span> Observed Flux (Kepler/TESS)</div>
-          <div class="legend-item"><span class="legend-dot dot-fit"></span> Analytical Light Curve Fit</div>
-          <div class="legend-item"><span class="legend-dot dot-ingress"></span> Ingress/Egress Contacts (t₁-t₄)</div>
-          <div class="legend-stat">Transit Depth (&delta;): <strong id="lcDepthVal">0.138% (1285 ppm)</strong></div>
-        </div>
-      </section>
-
-      <!-- Top Right: 3D Orbital Mechanics Simulator with Drag-to-Rotate -->
-      <section class="card orbit-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <span class="card-icon amber-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-            </span>
-            <div>
-              <h2 class="card-title">3D ORBIT & TRANSIT GEOMETRY (DRAGGABLE)</h2>
-              <p class="card-desc">Drag canvas vertically to adjust inclination angle in real time</p>
-            </div>
-          </div>
-
-          <div class="view-toggles">
-            <button class="view-btn active" id="btnViewTransit">Transit (Telescope)</button>
-            <button class="view-btn" id="btnViewTop">Top-Down Orbit</button>
-          </div>
-        </div>
-
-        <div class="canvas-wrapper draggable-canvas-wrapper" title="Click and drag up/down to tilt orbital inclination!">
-          <canvas id="orbitCanvas" width="530" height="290"></canvas>
-          <div class="drag-hint-badge">💡 Drag up/down to tilt inclination</div>
-        </div>
-
-        <div class="orbit-controls-bar">
-          <div class="playback-group">
-            <button class="control-btn" id="btnPlayPause" title="Play/Pause Simulation">
-              <svg id="playIcon" class="hidden" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-              <svg id="pauseIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            </button>
-            <button class="control-btn" id="btnReset" title="Reset Orbital Phase">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-            </button>
-          </div>
-
-          <div class="speed-slider-wrap">
-            <span class="slider-lbl">Sim Speed:</span>
-            <input type="range" id="simSpeedRange" min="0.2" max="3.0" step="0.1" value="1.0">
-            <span id="speedVal" class="speed-val">1.0x</span>
-          </div>
-
-          <div class="inclination-indicator">
-            Inclination (i): <strong id="incDegVal">89.81&deg;</strong>
-          </div>
-        </div>
-      </section>
-
-      <!-- Bottom Row Left: Habitable Zone & Equilibrium Temp Gauge -->
-      <section class="card hz-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <span class="card-icon emerald-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-            </span>
-            <div>
-              <h2 class="card-title">HABITABLE ZONE (GOLDILOCKS) GAUGE</h2>
-              <p class="card-desc">Equilibrium temperature & liquid water stability</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="hz-body">
-          <div class="gauge-container">
-            <canvas id="gaugeCanvas" width="280" height="145"></canvas>
-            <div class="gauge-readout">
-              <span class="gauge-temp-val" id="gaugeTempVal">265 K</span>
-              <span class="gauge-temp-c" id="gaugeTempC">(-8 &deg;C)</span>
-            </div>
-          </div>
-
-          <div class="hz-status-box" id="hzStatusBox">
-            <div class="hz-badge-label" id="hzBadgeLabel">OPTIMISTIC HABITABLE ZONE</div>
-            <p class="hz-badge-desc" id="hzBadgeDesc">Atmospheric greenhouse effect could sustain liquid surface oceans.</p>
-          </div>
-
-          <div class="esi-meter-wrapper">
-            <div class="esi-header">
-              <span>Earth Similarity Index (ESI)</span>
-              <strong id="esiValueText">0.84 / 1.00</strong>
-            </div>
-            <div class="progress-bar-bg">
-              <div class="progress-bar-fill" id="esiBarFill" style="width: 84%;"></div>
-            </div>
-          </div>
-
-          <button class="btn btn-scan-glow" id="btnScanBiosignature">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
-            RUN FULL HABITABILITY & BIOSIGNATURE VERDICT
+    <!-- Main Workspace (Panels) -->
+    <main class="hud-main">
+      <!-- Left Panel: Galactic Controls & Mission Targets -->
+      <aside class="hud-panel panel-left" aria-label="Navigation & Scene Controls">
+        <div class="panel-section">
+          <h2 class="panel-title">SCENE NAVIGATION</h2>
+          <button id="btnResetView" class="btn btn-secondary btn-full" title="Reset camera to galactic macro view">
+            Reset Galaxy View
           </button>
         </div>
-      </section>
 
-      <!-- Bottom Row Center: Planetary Parameter Telemetry -->
-      <section class="card telemetry-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <span class="card-icon purple-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
-            </span>
-            <div>
-              <h2 class="card-title">PLANETARY PARAMETER TELEMETRY</h2>
-              <p class="card-desc">Astrophysical properties computed from light curve & Kepler's 3rd law</p>
+        <div class="panel-section">
+          <h2 class="panel-title">MILKY WAY KINEMATICS</h2>
+          <div class="telemetry-grid">
+            <div class="telemetry-item">
+              <span class="tel-label">Spiral Arm Pitch</span>
+              <span class="tel-val">ψ = 13.0°</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Bar Inclination</span>
+              <span class="tel-val">φ₀ = 27.0°</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Galactic Center</span>
+              <span class="tel-val">Sgr A* (8.18 kpc)</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">GPU Point Cloud</span>
+              <span class="tel-val">150,000 Particles</span>
             </div>
           </div>
         </div>
 
-        <div class="telemetry-grid">
-          <div class="telemetry-item">
-            <span class="telemetry-label">ORBITAL PERIOD (P)</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val" id="telPeriod">384.8</span>
-              <span class="telemetry-unit">days</span>
-            </div>
-            <span class="telemetry-sub">Repeat cadence of transit</span>
-          </div>
-
-          <div class="telemetry-item">
-            <span class="telemetry-label">PLANET RADIUS (R<sub>p</sub>)</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val" id="telRadius">1.63</span>
-              <span class="telemetry-unit">R<sub>&oplus;</sub></span>
-            </div>
-            <span class="telemetry-sub">Formula: &radic;&delta; &times; R<sub>*</sub></span>
-          </div>
-
-          <div class="telemetry-item">
-            <span class="telemetry-label">SEMI-MAJOR AXIS (a)</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val" id="telAxis">1.046</span>
-              <span class="telemetry-unit">AU</span>
-            </div>
-            <span class="telemetry-sub">Kepler's 3rd Law (a&sup3; &prop; P&sup2;)</span>
-          </div>
-
-          <div class="telemetry-item">
-            <span class="telemetry-label">STELLAR FLUX (S<sub>eff</sub>)</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val" id="telFlux">1.10</span>
-              <span class="telemetry-unit">S<sub>&oplus;</sub></span>
-            </div>
-            <span class="telemetry-sub">Solar constant multiplier</span>
-          </div>
-
-          <div class="telemetry-item">
-            <span class="telemetry-label">TRANSIT DURATION (T<sub>14</sub>)</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val" id="telDuration">10.5</span>
-              <span class="telemetry-unit">hours</span>
-            </div>
-            <span class="telemetry-sub">First to fourth contact</span>
-          </div>
-
-          <div class="telemetry-item">
-            <span class="telemetry-label">PLANETARY CLASS</span>
-            <div class="telemetry-val-group">
-              <span class="telemetry-val class-val" id="telPlanetClass">Super-Earth</span>
-            </div>
-            <span class="telemetry-sub" id="telDensityEst">Rocky core / Volatiles</span>
+        <div class="panel-section">
+          <h2 class="panel-title">KEY BENCHMARK WORLDS</h2>
+          <div class="quick-target-list">
+            <button class="target-btn" onclick="document.getElementById('searchInput').value='Kepler-186 f'; document.getElementById('searchInput').dispatchEvent(new Event('input'))">Kepler-186 f (Habitable)</button>
+            <button class="target-btn" onclick="document.getElementById('searchInput').value='HD 209458 b'; document.getElementById('searchInput').dispatchEvent(new Event('input'))">HD 209458 b (Hot Jupiter)</button>
+            <button class="target-btn" onclick="document.getElementById('searchInput').value='Kepler-452 b'; document.getElementById('searchInput').dispatchEvent(new Event('input'))">Kepler-452 b (Super-Earth)</button>
           </div>
         </div>
+      </aside>
 
-        <!-- Relative Size Scale Bar -->
-        <div class="size-scale-container">
-          <div class="scale-header">
-            <span>Relative Planetary Scale Comparison</span>
-            <span id="scaleRatioText">Kepler-452b is 1.63x Earth radius</span>
-          </div>
-          <div class="scale-visual-bar">
-            <div class="scale-planet earth-scale" title="Earth (1.0 R⊕)">
-              <div class="circle c-earth"></div>
-              <span>Earth (1.0 R<sub>&oplus;</sub>)</span>
+      <!-- Right Panel: Telemetry, Light Curve & Astrobiological Assessment -->
+      <aside class="hud-panel panel-right" aria-label="Planetary Physics & Photometry">
+        <!-- Host Star Telemetry -->
+        <section class="panel-section">
+          <h2 class="panel-title" id="targetStarName">Host Star Telemetry</h2>
+          <div class="telemetry-grid">
+            <div class="telemetry-item">
+              <span class="tel-label">Distance from Earth</span>
+              <span id="valDistEarth" class="tel-val">--</span>
             </div>
-            <div class="scale-planet target-scale" id="scaleTargetPlanet" title="Current Planet">
-              <div class="circle c-target" id="targetScaleCircle" style="width: 22px; height: 22px;"></div>
-              <span id="targetScaleName">Kepler-452b (1.63 R<sub>&oplus;</sub>)</span>
+            <div class="telemetry-item">
+              <span class="tel-label">Effective Temp</span>
+              <span id="valTeff" class="tel-val">--</span>
             </div>
-            <div class="scale-planet jupiter-scale" title="Jupiter (11.2 R⊕)">
-              <div class="circle c-jupiter"></div>
-              <span>Jupiter (11.2 R<sub>&oplus;</sub>)</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Bottom Row Right: Dataset Selector & Interactive Sandbox -->
-      <section class="card controls-card">
-        <div class="card-header">
-          <div class="card-title-group">
-            <span class="card-icon blue-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-            </span>
-            <div>
-              <h2 class="card-title">NASA TARGET CATALOG & SANDBOX</h2>
-              <p class="card-desc">Switch exoplanets or test custom star-planet systems</p>
+            <div class="telemetry-item">
+              <span class="tel-label">Stellar Radius</span>
+              <span id="valStarRad" class="tel-val">--</span>
             </div>
           </div>
-        </div>
+        </section>
 
-        <div class="controls-body">
-          <div class="form-group">
-            <label class="form-label" for="datasetSelect">Select NASA Exoplanet System:</label>
-            <select id="datasetSelect" class="custom-select">
-              <option value="kepler452b">Kepler-452b ("Earth 2.0" Super-Earth)</option>
-              <option value="trappist1e">TRAPPIST-1e (Habitable M-Dwarf Planet)</option>
-              <option value="kepler22b">Kepler-22b (First HZ Super-Earth)</option>
-              <option value="toi700d">TOI-700 d (TESS Earth-sized HZ World)</option>
-              <option value="wasp12b">WASP-12b (Ultra-Hot Jupiter Deep Dip)</option>
-              <option value="custom">⚙️ Custom Sandbox Mode (Interactive Sliders)</option>
-            </select>
-          </div>
-
-          <div class="sandbox-panel" id="sandboxPanel">
-            <div class="sandbox-slider-row">
-              <div class="slider-header">
-                <span>Planet Radius (R<sub>p</sub>)</span>
-                <span id="sliderValRp">1.63 R<sub>&oplus;</sub></span>
-              </div>
-              <input type="range" id="sliderRp" min="0.5" max="15.0" step="0.1" value="1.63">
+        <!-- Revolving Exoplanet Parameters -->
+        <section class="panel-section">
+          <h2 class="panel-title">Planetary Physics</h2>
+          <div class="telemetry-grid">
+            <div class="telemetry-item">
+              <span class="tel-label">Designation</span>
+              <span id="valPlanetName" class="tel-val highlight-val">--</span>
             </div>
-
-            <div class="sandbox-slider-row">
-              <div class="slider-header">
-                <span>Orbital Semi-Major Axis (a)</span>
-                <span id="sliderValA">1.05 AU</span>
-              </div>
-              <input type="range" id="sliderA" min="0.02" max="3.0" step="0.02" value="1.05">
+            <div class="telemetry-item">
+              <span class="tel-label">Semi-Major Axis</span>
+              <span id="valDistStar" class="tel-val">--</span>
             </div>
-
-            <div class="sandbox-slider-row">
-              <div class="slider-header">
-                <span>Star Temperature (T<sub>*</sub>)</span>
-                <span id="sliderValTstar">5757 K</span>
-              </div>
-              <input type="range" id="sliderTstar" min="2500" max="8000" step="50" value="5757">
+            <div class="telemetry-item">
+              <span class="tel-label">Orbital Period</span>
+              <span id="valPeriod" class="tel-val">--</span>
             </div>
-
-            <div class="sandbox-slider-row">
-              <div class="slider-header">
-                <span>Star Radius (R<sub>*</sub>)</span>
-                <span id="sliderValRstar">1.11 R<sub>&odot;</sub></span>
-              </div>
-              <input type="range" id="sliderRstar" min="0.15" max="3.0" step="0.05" value="1.11">
+            <div class="telemetry-item">
+              <span class="tel-label">Planetary Radius</span>
+              <span id="valPlanetRad" class="tel-val">--</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Optical Dip (ΔF)</span>
+              <span id="valTransitDepth" class="tel-val">--</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Density Estimate</span>
+              <span id="valDensity" class="tel-val">--</span>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
+        <!-- Real-Time Light Curve Canvas -->
+        <section class="panel-section">
+          <div class="section-header-row">
+            <h2 class="panel-title">Photometric Transit Stream</h2>
+            <span class="pulse-live">60 FPS LIVE</span>
+          </div>
+          <div class="canvas-box">
+            <canvas id="transitCanvas" width="400" height="130" aria-label="Real-time light curve streaming canvas displaying relative starlight flux over time"></canvas>
+          </div>
+          <div class="lightcurve-legend">
+            <span><span class="legend-dot cyan-dot"></span> Baseline Flux</span>
+            <span><span class="legend-dot pink-dot"></span> Transit Ingress / Dip</span>
+          </div>
+        </section>
+
+        <!-- Astrobiological Scientific Verdict -->
+        <section class="panel-section verdict-section">
+          <h2 class="panel-title">Astrobiological Verdict</h2>
+          <div class="verdict-card">
+            <h3 id="verdictTitle" class="verdict-headline">Evaluating System...</h3>
+            <p id="verdictDesc" class="verdict-desc">Processing orbital and photometric metrics...</p>
+            <div class="verdict-metrics-row">
+              <span class="metric-tag">Stellar Flux: <strong id="valIrradiance">--</strong></span>
+            </div>
+            <div class="verdict-disclosure">
+              <span class="disclosure-label">Methodology:</span>
+              <p id="verdictDisclosure" class="disclosure-text">--</p>
+            </div>
+          </div>
+        </section>
+      </aside>
     </main>
 
-    <!-- Footer -->
-    <footer class="main-footer">
-      <div class="footer-left">
-        <span>School Science Fair Project • Astrophysics & Computational Astronomy Division</span>
-      </div>
-      <div class="footer-right">
-        <span>Formulas: Mandel-Agol Light Curve Model • Kopparapu Habitable Zone Equations</span>
-      </div>
+    <!-- Mandatory Attribution Footer (Task 10.4) -->
+    <footer class="hud-footer" role="contentinfo">
+      <p>
+        Data courtesy of <strong>NASA Exoplanet Archive</strong> (IPAC/Caltech) &amp; <strong>ESA Gaia DR3</strong> DPAC.
+        CosmoScan Astrophysical Exploration Platform • Strictly Validated Scientific Heuristics.
+      </p>
     </footer>
   </div>
 
-  <!-- 60-Second Interactive Guided Tour Modal for Judges -->
-  <div class="modal-backdrop" id="tourModal">
-    <div class="modal-dialog tour-dialog">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h2 id="tourStepTitle">STEP 1: THE CORE ASTRONOMICAL PROBLEM</h2>
-          <p id="tourStepSubtitle">Science Fair Guided Presentation Step 1 of 5</p>
-        </div>
-        <button class="modal-close-btn" id="btnCloseTour">&times;</button>
-      </div>
-
-      <div class="modal-body tour-body" id="tourBodyContent"></div>
-
-      <div class="modal-footer tour-footer">
-        <button class="btn btn-secondary" id="btnTourPrev">Previous</button>
-        <div class="tour-dots" id="tourDots">
-          <span class="dot active"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
-        </div>
-        <button class="btn btn-primary" id="btnTourNext">Next Step &rarr;</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Interactive Exoplanet Catalog & Leaderboard Modal -->
-  <div class="modal-backdrop" id="leaderboardModal">
-    <div class="modal-dialog leaderboard-dialog">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h2>EXOPLANET CATALOG MATRIX & HABITABILITY LEADERBOARD</h2>
-          <p>Comparative astrophysics ranking sorted by Earth Similarity Index (ESI)</p>
-        </div>
-        <button class="modal-close-btn" id="btnCloseLeaderboard">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Exoplanet</th>
-              <th>Star Type</th>
-              <th>Radius (R<sub>&oplus;</sub>)</th>
-              <th>Period</th>
-              <th>T<sub>eq</sub></th>
-              <th>Transit Depth</th>
-              <th>ESI Score</th>
-              <th>Select</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>🥇 #1</td>
-              <td><strong>TOI-700 d</strong></td>
-              <td>M2V (Red Dwarf)</td>
-              <td>1.14</td>
-              <td>37.4d</td>
-              <td>269 K</td>
-              <td>632 ppm</td>
-              <td><strong class="text-emerald">0.88</strong></td>
-              <td><button class="btn btn-small" onclick="selectPlanetFromTable('toi700d')">Analyze</button></td>
-            </tr>
-            <tr>
-              <td>🥈 #2</td>
-              <td><strong>TRAPPIST-1e</strong></td>
-              <td>M8V (Ultra-Cool)</td>
-              <td>0.92</td>
-              <td>6.1d</td>
-              <td>246 K</td>
-              <td>4,839 ppm</td>
-              <td><strong class="text-emerald">0.86</strong></td>
-              <td><button class="btn btn-small" onclick="selectPlanetFromTable('trappist1e')">Analyze</button></td>
-            </tr>
-            <tr>
-              <td>🥉 #3</td>
-              <td><strong>Kepler-452b</strong></td>
-              <td>G2V (Sun-like)</td>
-              <td>1.63</td>
-              <td>384.8d</td>
-              <td>265 K</td>
-              <td>1,285 ppm</td>
-              <td><strong class="text-emerald">0.84</strong></td>
-              <td><button class="btn btn-small" onclick="selectPlanetFromTable('kepler452b')">Analyze</button></td>
-            </tr>
-            <tr>
-              <td>#4</td>
-              <td><strong>Kepler-22b</strong></td>
-              <td>G5V</td>
-              <td>2.38</td>
-              <td>289.9d</td>
-              <td>262 K</td>
-              <td>494 ppm</td>
-              <td><strong class="text-cyan">0.70</strong></td>
-              <td><button class="btn btn-small" onclick="selectPlanetFromTable('kepler22b')">Analyze</button></td>
-            </tr>
-            <tr>
-              <td>#5</td>
-              <td><strong>WASP-12b</strong></td>
-              <td>F-Type Star</td>
-              <td>19.4</td>
-              <td>1.09d</td>
-              <td>2,580 K</td>
-              <td>11,433 ppm</td>
-              <td><strong class="text-pink">0.05</strong></td>
-              <td><button class="btn btn-small" onclick="selectPlanetFromTable('wasp12b')">Analyze</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-primary" id="btnCloseLeaderboardBtn">Close Matrix</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- BREATHTAKING FINAL ASTROBIOLOGY & BIOSIGNATURE DOSSIER MODAL -->
-  <div class="modal-backdrop" id="scanModal">
-    <div class="modal-dialog cinematic-dossier-dialog">
-      <div class="modal-header dossier-header">
-        <div class="dossier-title-badge">
-          <div class="nasa-seal">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-          </div>
-          <div>
-            <h2 class="dossier-title">OFFICIAL EXOPLANET HABITABILITY & BIOSIGNATURE DOSSIER</h2>
-            <p class="dossier-sub">NASA Astrobiology & Science Fair Jury Executive Evaluation • <span id="scanPlanetName">Kepler-452b</span></p>
-          </div>
-        </div>
-        <button class="modal-close-btn" id="btnCloseScan">&times;</button>
-      </div>
-
-      <div class="modal-body dossier-body">
-        <!-- Scanning Animation Overlay -->
-        <div class="scan-animation-box" id="scanAnimBox">
-          <div class="radar-sweep"></div>
-          <div class="scan-laser"></div>
-          <div class="scan-status-text" id="scanStatusText">ANALYZING SPECTROSCOPY & CLIMATE DYNAMICS...</div>
-          <div class="scan-sub-text">Synthesizing Kepler-Cadence Flux Dip & JWST Molecular Signatures</div>
-        </div>
-
-        <!-- Grand Result Container -->
-        <div class="grand-result-container hidden" id="verdictGrid">
-          
-          <!-- Top Hero Row: 3D Holographic Globe + Score Gauge + Jury Seal -->
-          <div class="dossier-hero-row">
-            <div class="holo-globe-card">
-              <div class="holo-header">HOLOGRAPHIC TERRAIN RECONSTRUCTION</div>
-              <canvas id="holoPlanetCanvas" width="180" height="180"></canvas>
-              <div class="holo-planet-name" id="holoPlanetName">Kepler-452b</div>
-              <div class="holo-planet-type" id="holoPlanetType">Super-Earth / Ocean Candidate</div>
-            </div>
-
-            <div class="score-radial-card">
-              <div class="radial-header">HABITABILITY & LIFE INDEX</div>
-              <div class="radial-ring-wrap">
-                <canvas id="radialRingCanvas" width="140" height="140"></canvas>
-                <div class="radial-score-val" id="dossierScoreVal">84%</div>
-              </div>
-              <div class="radial-score-lbl" id="dossierScoreClass">CLASS-1 HABITABLE CANDIDATE</div>
-            </div>
-
-            <div class="jury-seal-card">
-              <div class="gold-seal-badge">
-                <div class="seal-icon">🏆</div>
-                <div class="seal-title">SCIENCE FAIR VERDICT</div>
-                <div class="seal-desc">HIGH ASTROBIOLOGICAL PRIORITY TARGET</div>
-                <div class="seal-divider"></div>
-                <div class="seal-footer">NASA TRANSIT METHOD • VERIFIED</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Bottom Metric Cards -->
-          <div class="dossier-metrics-grid">
-            <div class="dossier-metric-item">
-              <div class="dm-header">
-                <span class="dm-icon">💧</span>
-                <span class="dm-title">SURFACE LIQUID WATER STABILITY</span>
-              </div>
-              <strong class="dm-val text-emerald" id="vWater">PROBABLE</strong>
-              <p class="dm-desc" id="vWaterDesc">Teq = 265K (-8°C) sits comfortably within liquid ocean greenhouse limits.</p>
-              <div class="mini-prob-bar"><div class="mini-fill" id="barWater" style="width: 88%; background: #10b981;"></div></div>
-            </div>
-
-            <div class="dossier-metric-item">
-              <div class="dm-header">
-                <span class="dm-icon">🔬</span>
-                <span class="dm-title">JWST ATMOSPHERIC SIGNATURES</span>
-              </div>
-              <strong class="dm-val text-cyan" id="vAtmo">H₂O / CO₂ DETECTED</strong>
-              <p class="dm-desc" id="vAtmoDesc">Strong 1.4µm & 2.7µm water absorption lines identified via infrared transit.</p>
-              <div class="mini-prob-bar"><div class="mini-fill" id="barAtmo" style="width: 82%; background: #38bdf8;"></div></div>
-            </div>
-
-            <div class="dossier-metric-item">
-              <div class="dm-header">
-                <span class="dm-icon">☀️</span>
-                <span class="dm-title">STELLAR RADIATION & FLARE RISK</span>
-              </div>
-              <strong class="dm-val text-amber" id="vRadiation">LOW FLARE ACTIVITY</strong>
-              <p class="dm-desc" id="vRadDesc">G2V solar analog guarantees billions of years of stable thermal irradiation.</p>
-              <div class="mini-prob-bar"><div class="mini-fill" id="barRad" style="width: 90%; background: #fbbf24;"></div></div>
-            </div>
-
-            <div class="dossier-metric-item">
-              <div class="dm-header">
-                <span class="dm-icon">🌍</span>
-                <span class="dm-title">EARTH SIMILARITY & DENSITY</span>
-              </div>
-              <strong class="dm-val text-cyan" id="vEsi">ESI = 0.84 / 1.00</strong>
-              <p class="dm-desc" id="vEsiDesc">Radius of 1.63 R⊕ supports thick atmospheric retention and rocky core.</p>
-              <div class="mini-prob-bar"><div class="mini-fill" id="barEsi" style="width: 84%; background: #a855f7;"></div></div>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      <div class="modal-footer dossier-footer">
-        <button class="btn btn-secondary" id="btnPrintDossier">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Print Official 1-Page Jury Dossier
-        </button>
-        <button class="btn btn-primary" id="btnCloseScanBtn">Return to Dashboard</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Complete Judge Research & Presentation Guide Modal -->
-  <div class="modal-backdrop" id="judgeModal">
-    <div class="modal-dialog">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h2>EXOPLANET TRANSIT PHOTOMETRY: SCIENCE FAIR RESEARCH GUIDE</h2>
-          <p>Complete project documentation, hypothesis, formulas, and judge presentation talking points</p>
-        </div>
-        <button class="modal-close-btn" id="btnCloseModal">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="modal-section">
-          <h3>1. Project Abstract & Core Hypothesis</h3>
-          <p>
-            <strong>Problem Statement:</strong> Distant exoplanets are too small and faint to photograph directly with conventional telescopes. How can astronomers measure the size, orbital distance, and habitability of planets orbiting distant stars hundreds of light-years away?
-          </p>
-          <p>
-            <strong>Hypothesis:</strong> By measuring high-precision time-series changes in stellar brightness (Transit Photometry) and applying Kepler’s Third Law of Planetary Motion, we can accurately deduce an exoplanet's physical radius ($R_p$), semi-major axis ($a$), and surface equilibrium temperature ($T_{eq}$) to determine whether it resides within the circumstellar Habitable Zone.
-          </p>
-        </div>
-
-        <div class="modal-section">
-          <h3>2. Mathematical Physics & Formulas Applied</h3>
-          <div class="formula-grid">
-            <div class="formula-card">
-              <h4>Transit Depth Equation</h4>
-              <div class="math-block">&delta; = \frac{\Delta F}{F} = \left(\frac{R_p}{R_*}\right)^2</div>
-              <p>The fractional dip in starlight is directly equal to the ratio of the cross-sectional area of the planet to the host star.</p>
-            </div>
-
-            <div class="formula-card">
-              <h4>Planet Radius Derivation</h4>
-              <div class="math-block">R_p = R_* \cdot \sqrt{\delta}</div>
-              <p>Calculates the physical radius of the exoplanet in Earth Radii ($R_\oplus$) or Jupiter Radii ($R_{Jup}$).</p>
-            </div>
-
-            <div class="formula-card">
-              <h4>Kepler's Third Law</h4>
-              <div class="math-block">a = \left(\frac{G \cdot M_* \cdot P^2}{4\pi^2}\right)^{1/3}</div>
-              <p>Relates orbital period ($P$) and star mass ($M_*$) directly to the planet-star distance in Astronomical Units (AU).</p>
-            </div>
-
-            <div class="formula-card">
-              <h4>Equilibrium Temperature ($T_{eq}$)</h4>
-              <div class="math-block">T_{eq} = T_* (1 - A)^{1/4} \sqrt{\frac{R_*}{2a}}</div>
-              <p>Assumes planetary albedo ($A \approx 0.3$) and uniform heat redistribution to compute surface temperature in Kelvin.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-section">
-          <h3>3. Key Real-World Datasets Analyzed</h3>
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Exoplanet</th>
-                <th>Host Star Type</th>
-                <th>Period (days)</th>
-                <th>Radius (R<sub>&oplus;</sub>)</th>
-                <th>T<sub>eq</sub> (K)</th>
-                <th>Habitable Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Kepler-452b</strong></td>
-                <td>G2V (Sun-like)</td>
-                <td>384.8</td>
-                <td>1.63</td>
-                <td>265 K</td>
-                <td><span class="status-pill status-hab">Optimistic HZ</span></td>
-              </tr>
-              <tr>
-                <td><strong>TRAPPIST-1e</strong></td>
-                <td>M8V (Red Dwarf)</td>
-                <td>6.10</td>
-                <td>0.92</td>
-                <td>246 K</td>
-                <td><span class="status-pill status-hab">Conservative HZ</span></td>
-              </tr>
-              <tr>
-                <td><strong>Kepler-22b</strong></td>
-                <td>G5V</td>
-                <td>289.9</td>
-                <td>2.38</td>
-                <td>262 K</td>
-                <td><span class="status-pill status-hab">Water World Candidate</span></td>
-              </tr>
-              <tr>
-                <td><strong>TOI-700 d</strong></td>
-                <td>M2V (Red Dwarf)</td>
-                <td>37.4</td>
-                <td>1.14</td>
-                <td>269 K</td>
-                <td><span class="status-pill status-hab">Conservative HZ</span></td>
-              </tr>
-              <tr>
-                <td><strong>WASP-12b</strong></td>
-                <td>F-Type Star</td>
-                <td>1.09</td>
-                <td>19.4</td>
-                <td>2580 K</td>
-                <td><span class="status-pill status-hot">Ultra-Hot Jupiter</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="modal-section">
-          <h3>4. Step-by-Step Presentation Script for Judges</h3>
-          <ol class="script-list">
-            <li><strong>Introduction (30s):</strong> Greet the judge, explain that over 70% of all 5,500+ exoplanets were discovered using transit photometry, and show the live dashboard.</li>
-            <li><strong>Demonstration (45s):</strong> Click on <em>Kepler-452b</em>. Show how the 3D planet crossing the star simultaneously triggers the light curve dip on the left graph. Explain Ingress, Mid-Transit, and Egress.</li>
-            <li><strong>Mathematical Verification (45s):</strong> Point to the Transit Depth formula ($\delta = (R_p / R_*)^2$). Show how a 1.63 $R_\oplus$ planet creates a 1,285 ppm dip.</li>
-            <li><strong>Habitable Zone Evaluation (30s):</strong> Show the Habitable Zone gauge needle at 265 K (-8&deg;C), explaining how the Kopparapu stellar flux model confirms liquid water potential.</li>
-            <li><strong>Interactive Test (Judge participation):</strong> Switch to <em>Custom Sandbox Mode</em> and let the judge change the planet radius or star temperature slider to discover the outcome!</li>
-          </ol>
-        </div>
-
-        <div class="modal-section">
-          <h3>5. Expected Judge Questions & Answers</h3>
-          <div class="qa-item">
-            <strong>Q: Why does the bottom of the light curve stay flat instead of being a V-shape?</strong>
-            <p><strong>A:</strong> A flat-bottomed U-shape occurs when the planet is completely inside the disc of the star during mid-transit. A V-shaped light curve usually indicates a grazing transit where the planet only clips the edge of the stellar disc, or an eclipsing binary star system.</p>
-          </div>
-          <div class="qa-item">
-            <strong>Q: What is the biggest source of error in transit photometry?</strong>
-            <p><strong>A:</strong> Stellar activity (such as starspots and flares) and instrumental photon noise. Starspots can mimic or distort transits, which is why multi-orbit averaging and space telescopes like Kepler/TESS are used to achieve parts-per-million photometric accuracy.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="btnPrintModal">Print / Save as PDF</button>
-        <button class="btn btn-primary" id="btnDoneModal">Close Guide</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
+  <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

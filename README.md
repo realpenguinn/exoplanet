@@ -1,91 +1,75 @@
-# 🪐 Exoplanet Data Analyzer & Habitable World Classifier (Pro Edition)
+# CosmoScan — Exoplanet Data Analyzer & 3D Milky Way Suite
 
-> **NASA Kepler & TESS Transit Photometry • JWST NIRSpec Atmospheric Spectroscopy • Habitable Zone Analyzer**
-
-A state-of-the-art computational astrophysics research suite and interactive simulation engine designed for high-precision exoplanet characterization and science fair exhibitions.
+CosmoScan is a high-performance astronomical visualization platform and exoplanet transit analyzer. Powered by real data cross-matched from the **NASA Exoplanet Archive** and the **ESA Gaia DR3** catalog, CosmoScan simulates 150,000 Milky Way stars, animates Keplerian exoplanet systems in 3D, streams real-time Mandel-Agol transit light curves, and classifies planetary habitability using transparent astrobiological heuristics.
 
 ---
 
-## 🌟 Key Scientific Capabilities
+## 🌟 Key Architecture & Capabilities
 
-1. **🔬 High-Precision Real-Time Transit Photometer**:
-   - Implements the analytical **Mandel & Agol (2002)** light curve model with quadratic stellar limb darkening ($I(\mu) = 1 - u_1(1-\mu) - u_2(1-\mu)^2$).
-   - Contact points detection ($t_1, t_2, t_3, t_4$) for ingress and egress phases.
-   - Multi-wavelength optical ($V$-band), infrared (JWST), and ultraviolet Rayleigh scattering filters.
-
-2. **🪐 Draggable 3D Orbit & Transit Geometry Simulator**:
-   - Interactive line-of-sight perspective matching space telescope observations.
-   - Live drag-to-tilt inclination physics ($90^\circ \to 80^\circ$) to explore grazing vs. full transits.
-   - Top-down Circumstellar Habitable Zone orbit projections.
-
-3. **🔭 JWST Atmospheric Transmission Spectroscopy**:
-   - Simulates infrared molecular absorption spectra for **Water Vapor ($\text{H}_2\text{O}$ at 1.4µm & 2.7µm)**, **Carbon Dioxide ($\text{CO}_2$ at 4.3µm)**, and **Methane ($\text{CH}_4$ at 3.3µm)**.
-
-4. **🌍 Astrobiological Habitability & Biosignature Dossier**:
-   - **Kopparapu et al. (2013)** multi-layer habitable zone climate equations.
-   - **Schulze-Makuch (2011)** Earth Similarity Index (ESI) calculation.
-   - Procedural 3D rotating planetary globe with atmospheric glow, dynamic cloud layers, and daytime/nighttime shadow terminators.
-   - Official Gold Science Fair Certification Seal and 1-page printable executive brief.
-
-5. **🔊 Sci-Fi Web Audio API Telemetry Synthesizer**:
-   - Real-time auditory telemetry cues on transit ingress, egress, and biosignature scans.
+- **150,000 Particle Milky Way Simulation**: Dynamic differential galactic rotation, perspective-dependent color grading, dust-lane extinction darkening, and warm core bloom running on custom GLSL shaders.
+- **60 FPS High-Performance Engine**: Sustained 60 FPS animation loop with a zero-allocation `MathPool` architecture, device pixel ratio clamping ($\le 2.0$), and a 160-point circular ring buffer rendering in $< 1.5$ms.
+- **Data-Grounded Scientific Accuracy**: 4,606 indexed exoplanet systems with decoded Gaia DR3 astrometry (VOTable `BINARY2` parser with per-row null bitmasks), power-law stellar mass derivations ($M_* = R_*^{1.2}$), and Mandel-Agol quadratic limb-darkening occultation curves.
+- **Automated Astrobiological Verdict Engine**: Transparent planetary classification (Terrestrial Habitable, Super-Earth, Hot Jupiter, Mini-Neptune) grounded in Kopparapu (2013) habitable zone flux bounds, Weiss & Marcy (2014) bulk density models, and Fulton (2017) radius valley analysis.
+- **Sub-2ms Spatial Search**: Instantaneous client-side indexed search across 4,600+ exoplanets and host stars.
+- **Accessible & Compliant (WCAG 2.1 AA)**: Full keyboard combobox navigation, screen reader `aria-live` non-visual photometric transit audio streaming, and high-contrast color tokens.
 
 ---
 
-## 📁 Repository Structure
+## 🚀 Quickstart
 
-```
-├── index.html                  # Master Interactive Web Observatory Dashboard
-├── style.css                   # Space Observatory Design System & Glassmorphism
-├── app.js                      # 60 FPS Physics Engine, 3D Canvas Globe, Web Audio
-├── run.py                      # 1-Click Master Project Launcher
-├── analyzer.py                 # Python Data Science Pipeline & 4-Panel Research Plots
-├── xxx.py                      # Desktop 60 FPS Pygame Orbital Simulation
-├── SCIENCE_FAIR_GUIDE.md       # Complete Project Report, Hypothesis, & Judge Q&A
-├── exoplanet_analysis_charts.png # Publication-Grade 4-Panel Scientific Figure
-└── README.md                   # Project Documentation
-```
+### Prerequisites
+- Node.js 20+
+- pnpm 9+ or 10+
+- Python 3.10+ (for optional raw VOTable reprocessing)
 
----
-
-## 🚀 How to Run Locally
-
-### 1. Launch the Web Observatory:
-Open `index.html` directly in any modern browser (Chrome, Edge, Firefox, Safari).
-
-### 2. Run the 1-Click Master Python Launcher:
+### Local Development
 ```bash
-python run.py
+# Clone the repository
+git clone https://github.com/realpenguinn/exoplanet.git
+cd exoplanet
+
+# Install dependencies
+pnpm install
+
+# Start local dev server (default http://localhost:5173)
+pnpm dev
 ```
 
-### 3. Run the Python Astrophysics Pipeline:
+### Production Build & Size Audit
 ```bash
-python analyzer.py
+# Type check and lint
+pnpm typecheck
+pnpm lint
+
+# Run all 39 unit, integration, scientific, and a11y tests
+pnpm test
+
+# Verify production bundle against < 350KB budget
+pnpm build
+pnpm audit:size
 ```
 
-### 4. Run the Pygame Desktop Simulator:
+### Docker Deployment
 ```bash
-python xxx.py
+docker build -t cosmoscan-suite:latest .
+docker run -p 8080:80 cosmoscan-suite:latest
 ```
 
 ---
 
-## 📐 Mathematical Physics Formulations
+## 📖 Architecture & Reference Documentation
 
-- **Transit Depth Formula**:
-  $$\delta = \frac{\Delta F}{F} = \left(\frac{R_p}{R_*}\right)^2 \implies R_p = R_* \sqrt{\delta}$$
-
-- **Kepler's Third Harmonic Law**:
-  $$a = \sqrt[3]{M_* \cdot P^2} \quad (\text{in AU, } M_\odot, \text{ years})$$
-
-- **Stellar Insolation**:
-  $$S_{\text{eff}} = \left(\frac{R_*}{R_\odot}\right)^2 \left(\frac{T_*}{T_\odot}\right)^4 \frac{1}{a^2}$$
-
-- **Equilibrium Temperature ($T_{eq}$)**:
-  $$T_{eq} = T_* (1 - A)^{1/4} \sqrt{\frac{R_*}{2a}}$$
+- [Product Requirements Document (PRD)](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/PRD.md)
+- [Scientific & Physical Assumptions](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/PHYSICS_ASSUMPTIONS.md)
+- [Data Governance & Attribution Policy](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/DATA_POLICY.md)
+- [Operational Runbook & Recovery Procedures](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/RUNBOOK.md)
+- [Risk Register & Mitigation Strategy](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/RISK_REGISTER.md)
+- [Accessibility Manual Verification Pass](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/A11Y_MANUAL_PASS.md)
+- [Architecture Decision Records (ADRs)](file:///c:/Users/realr/OneDrive/Desktop/Exoplanet/docs/adr/README.md)
 
 ---
 
-## 🏆 Science Fair Presentation Script (30-Second Pitch)
+## 📜 Scientific Attribution
 
-> *"Over 70% of all 5,500+ exoplanets were discovered using transit photometry. When an alien planet passes in front of its star, it blocks a microscopic fraction of starlight. Our software analyzes this light curve dip and applies Kepler's Third Law to determine the planet's radius, orbital distance, surface temperature, and atmospheric water vapor potential."*
+- **NASA Exoplanet Archive**: Data courtesy of the NASA Exoplanet Archive, operated by the California Institute of Technology under contract with the National Aeronautics and Space Administration under the Exoplanet Exploration Program.
+- **ESA Gaia DR3**: Astrometric cross-matching relies on data from the European Space Agency (ESA) mission Gaia (https://www.cosmos.esa.int/gaia), processed by the Gaia Data Processing and Analysis Consortium (DPAC).

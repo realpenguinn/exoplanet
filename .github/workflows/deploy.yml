@@ -1,0 +1,50 @@
+name: CosmoScan CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 10
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify TypeScript Types
+        run: pnpm typecheck
+
+      - name: Run Linter
+        run: pnpm lint
+
+      - name: Execute Automated Test Suite
+        run: pnpm test
+
+      - name: Enforce Bundle Size Budget
+        run: pnpm audit:size
+
+      - name: Compile Production Bundle
+        run: pnpm build
+
+      - name: Build Docker Container
+        run: docker build -t cosmoscan-suite:latest .
+
+      - name: Scheduled Catalog Ingestion (nightly only)
+        if: github.event_name == 'schedule'
+        run: python scripts/ingest_nasa_data.py
