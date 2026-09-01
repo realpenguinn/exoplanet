@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.vscode/
+argv.json
+extensions/
