@@ -9,8 +9,8 @@ export class CoordinateTransformer {
   private static readonly SUN_GALACTIC_Y = 0.02;
   private static readonly SUN_GALACTIC_Z = 0.0;
 
-  // 1 scene unit = 1000 pc (1 kpc). Scale 0.002 maps 1000 pc to 2 units around Sun
-  private static readonly SCENE_DISTANCE_SCALE = 0.002;
+  // 1 scene unit = 180 pc. Scale 0.0055 spaces out the Kepler cone cleanly along the Orion arm
+  private static readonly SCENE_DISTANCE_SCALE = 0.0055;
 
   // IAU J2000 Transformation constants (Equatorial to Galactic)
   private static readonly RA_NGP = 192.85948 * (Math.PI / 180.0);   // RA of North Galactic Pole

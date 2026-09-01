@@ -38,7 +38,7 @@ export class MilkyWayGalaxy {
           );
 
           vec4 mvPosition = modelViewMatrix * vec4(rotatedPos, 1.0);
-          gl_PointSize = size * (45.0 / -mvPosition.z); // Fine star pinpoints without chalky overlapping
+          gl_PointSize = size * (36.0 / -mvPosition.z); // Razor-sharp star pinpoints without chalky overlapping
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -52,16 +52,16 @@ export class MilkyWayGalaxy {
           float d = length(coord);
           if (d > 0.5) discard;
 
-          // Procedural cross diffraction spikes for brilliant stars
-          float spike = max(0.0, 1.0 - abs(coord.x * coord.y) * 80.0) * 0.20;
-          float core = exp(-18.0 * d * d);
+          // Needle-sharp stellar core profile with crisp diffraction spike
+          float spike = max(0.0, 1.0 - abs(coord.x * coord.y) * 140.0) * 0.30;
+          float core = exp(-38.0 * d * d);
 
           // Living stellar twinkle / scintillation
           float twinkle = 0.90 + 0.10 * sin(uTime * 3.5 + vTwinkle);
 
-          // Calibrated additive alpha for 500k points (luminous without blowout)
-          float alpha = (core * 0.14 + spike * 0.22) * twinkle;
-          gl_FragColor = vec4(vColor * 0.9, alpha);
+          // Calibrated additive alpha for 500k points (crisp diamond starlight)
+          float alpha = (core * 0.18 + spike * 0.25) * twinkle;
+          gl_FragColor = vec4(vColor * 0.95, alpha);
         }
       `,
       uniforms: {

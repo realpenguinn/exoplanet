@@ -228,7 +228,13 @@ export class CosmoScanApp {
   public selectTarget(system: ExoplanetSystem): void {
     this.currentSystem = system;
     this.systemRenderer.loadSystem(system);
-    this.targetNodes?.setSelection(system);
+    this.systemRenderer.group.visible = true;
+
+    // Star Isolation: Hide all 4,600 other target nodes immediately so the selected star & planet stand alone
+    if (this.targetNodes) {
+      this.targetNodes.instancedMesh.visible = false;
+      this.targetNodes.selectionRing.visible = false;
+    }
 
     // Spatial sound chime
     soundSynth.playTargetSelect(this.mouse.x);
@@ -316,6 +322,7 @@ export class CosmoScanApp {
     this.cameraController.flyTo(new THREE.Vector3(0, 140, 170), new THREE.Vector3(0, 0, 0), flightDuration);
     this.systemRenderer.group.visible = false;
     if (this.targetNodes) {
+      this.targetNodes.instancedMesh.visible = true;
       this.targetNodes.selectionRing.visible = false;
     }
 
@@ -382,12 +389,19 @@ export class CosmoScanApp {
 
       canvas3d.addEventListener('pointermove', (e: PointerEvent) => {
         this.cameraController.resetIdleTimer();
-        if (!this.targetNodes) return;
         const rect = (e.target as HTMLElement).getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
         this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        if (this.systemRenderer.group.visible) {
+          const starHits = this.raycaster.intersectObject(this.systemRenderer.starMesh);
+          const planetHits = this.raycaster.intersectObject(this.systemRenderer.planetMesh);
+          canvas3d.style.cursor = (starHits.length > 0 || planetHits.length > 0) ? 'pointer' : 'default';
+          return;
+        }
+
+        if (!this.targetNodes || !this.targetNodes.instancedMesh.visible) return;
         const intersects = this.raycaster.intersectObject(this.targetNodes.instancedMesh);
         if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
           canvas3d.style.cursor = 'pointer';
@@ -413,18 +427,28 @@ export class CosmoScanApp {
         // Only process tap/click if user didn't drag/orbit the camera (> 7px)
         if (dragDist > 7) return;
 
-        if (!this.targetNodes) return;
         const rect = (e.target as HTMLElement).getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
         this.raycaster.setFromCamera(this.mouse, this.camera);
+
+        // In isolated system view: tapping empty background space returns to full galaxy view
+        if (this.systemRenderer.group.visible) {
+          const starHits = this.raycaster.intersectObject(this.systemRenderer.starMesh);
+          const planetHits = this.raycaster.intersectObject(this.systemRenderer.planetMesh);
+          if (starHits.length === 0 && planetHits.length === 0) {
+            this.resetGalaxyView();
+          }
+          return;
+        }
+
+        // In macro galaxy view: selecting a star isolates it
+        if (!this.targetNodes || !this.targetNodes.instancedMesh.visible) return;
         const intersects = this.raycaster.intersectObject(this.targetNodes.instancedMesh);
         if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
           const sys = this.targetNodes.getSystemAtIndex(intersects[0].instanceId);
           if (sys) this.selectTarget(sys);
         } else {
-          // Tapped on empty background space -> go back to full galaxy view
           this.resetGalaxyView();
         }
       });
@@ -494,9 +518,16 @@ export class CosmoScanApp {
       this.cameraController.update(delta);
       this.targetNodes?.update(delta, this.camera);
 
-      // Only show planetary system close-up mesh when zoomed in within 45 units of target
+      // Star & Planetary System Isolation:
+      // When zoomed in to inspect a system (camera within 55 units), isolate the host star and its planet!
+      // Hide all 4,600+ other target markers and selection ring so there is ZERO cluster crowding.
       const camTargetDist = this.camera.position.distanceTo(this.systemRenderer.group.position);
-      this.systemRenderer.group.visible = camTargetDist < 45.0;
+      const isSystemView = camTargetDist < 55.0;
+      this.systemRenderer.group.visible = isSystemView;
+      if (this.targetNodes) {
+        this.targetNodes.instancedMesh.visible = !isSystemView;
+        this.targetNodes.selectionRing.visible = !isSystemView;
+      }
 
       const { isTransiting, flux } = this.systemRenderer.update(delta, this.camera);
 

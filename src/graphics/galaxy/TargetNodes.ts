@@ -13,13 +13,14 @@ export class TargetNodes {
     this.systemIndexMap = systems;
     const count = systems.length;
 
-    // Lightweight base sphere geometry for target markers
-    const geometry = new THREE.SphereGeometry(0.08, 8, 8);
+    // Lightweight base sphere geometry for needle-sharp target markers
+    const geometry = new THREE.SphereGeometry(0.032, 10, 10);
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.95,
-      blending: THREE.AdditiveBlending
+      opacity: 0.88,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
 
     this.instancedMesh = new THREE.InstancedMesh(geometry, material, count);
@@ -29,12 +30,11 @@ export class TargetNodes {
     for (let i = 0; i < count; i++) {
       const sys = systems[i];
 
-      // Physical & Astrometric Apparent Angular Size Sizing:
-      // Apparent angular size θ ≈ R* / d (nearer stars and larger stars appear prominent)
+      // Sharpened pinpoint apparent angular size (nearer & larger stars appear prominent, yet crisp)
       const distPc = Math.max(5.0, sys.coordinates.distancePc);
       const starRad = Math.max(0.2, Math.min(3.0, sys.stellarPhysics.radiusSolar));
       const angularSize = starRad / (distPc / 1000.0); // R* / d in kpc
-      const starScale = Math.max(0.25, Math.min(2.6, 2.5 * Math.sqrt(angularSize) + 0.3));
+      const starScale = Math.max(0.35, Math.min(1.6, 0.9 * Math.sqrt(angularSize) + 0.4));
 
       this.dummy.position.set(
         sys.coordinates.galacticX,
