@@ -14,7 +14,7 @@ export class TargetNodes {
     const count = systems.length;
 
     // Needle-sharp diamond star markers calibrated for vast interstellar exploration
-    const geometry = new THREE.SphereGeometry(0.045, 12, 12);
+    const geometry = new THREE.SphereGeometry(0.04, 10, 10);
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
@@ -34,7 +34,7 @@ export class TargetNodes {
       const distPc = Math.max(5.0, sys.coordinates.distancePc);
       const starRad = Math.max(0.2, Math.min(3.0, sys.stellarPhysics.radiusSolar));
       const angularSize = starRad / (distPc / 1000.0); // R* / d in kpc
-      const starScale = Math.max(0.4, Math.min(1.8, 1.0 * Math.sqrt(angularSize) + 0.5));
+      const starScale = Math.max(0.35, Math.min(1.5, 0.8 * Math.sqrt(angularSize) + 0.4));
 
       this.dummy.position.set(
         sys.coordinates.galacticX,
@@ -69,7 +69,7 @@ export class TargetNodes {
     }
 
     // Pulsing Selection Ring for Active Target
-    const ringGeom = new THREE.RingGeometry(0.8, 1.1, 32);
+    const ringGeom = new THREE.RingGeometry(0.5, 0.72, 32);
     this.ringMaterial = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       side: THREE.DoubleSide,

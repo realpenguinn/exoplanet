@@ -85,7 +85,8 @@ export class CosmoScanApp {
   private filmVignettePass!: ShaderPass;
   private chromaticPass!: ShaderPass;
   private smaaPass!: SMAAPass;
-  private controls: OrbitControls;
+  private controls!: OrbitControls;
+  private galaxyGroup = new THREE.Group();
   private galaxy: MilkyWayGalaxy;
   private targetNodes: TargetNodes | null = null;
   private systemRenderer: PlanetarySystemRenderer;
@@ -114,8 +115,8 @@ export class CosmoScanApp {
     this.scene.fog = new THREE.FogExp2(0x030712, 0.0012);
 
     this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 4000);
-    // Homepage closer to the living galaxy: positioned near the Orion arm looking across the sweeping spiral disk
-    this.camera.position.set(78, 24, 62);
+    // Homepage zoomed in close to the galaxy so it fills the screen with its glowing core & spiral arms
+    this.camera.position.set(0, 48, 64);
 
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -178,7 +179,7 @@ export class CosmoScanApp {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.target.set(45, 0, 20);
+    this.controls.target.set(0, 0, 0);
     this.controls.minDistance = 0.5;
     this.controls.maxDistance = 1200;
 
@@ -187,8 +188,11 @@ export class CosmoScanApp {
     const tierConfig = detectParticleTier(gl);
     logger.info('Graphics', `Selected Particle Tier: ${tierConfig.tier} (${tierConfig.particleBudget} stars)`);
 
+    // Galactic Parent Group: rotates smoothly in real time
+    this.scene.add(this.galaxyGroup);
+
     this.galaxy = new MilkyWayGalaxy(tierConfig.particleBudget);
-    this.scene.add(this.galaxy.mesh);
+    this.galaxyGroup.add(this.galaxy.mesh);
 
     this.systemRenderer = new PlanetarySystemRenderer();
     this.scene.add(this.systemRenderer.group);
@@ -209,10 +213,10 @@ export class CosmoScanApp {
     this.exoplanetData = rawRecords.map((r, i) => CoordinateTransformer.transformRecord(r, i));
     this.searchIndex.indexSystems(this.exoplanetData);
 
-    // Instanced Clickable Target Nodes Layer with Selection Ring
+    // Instanced Clickable Target Nodes Layer with Selection Ring attached to rotating galaxy
     this.targetNodes = new TargetNodes(this.exoplanetData);
-    this.scene.add(this.targetNodes.instancedMesh);
-    this.scene.add(this.targetNodes.selectionRing);
+    this.galaxyGroup.add(this.targetNodes.instancedMesh);
+    this.galaxyGroup.add(this.targetNodes.selectionRing);
 
     const elCounter = document.getElementById('totalLoadedStars');
     if (elCounter) elCounter.textContent = `${this.exoplanetData.length.toLocaleString()} Indexed Hosts`;
@@ -243,16 +247,19 @@ export class CosmoScanApp {
     // Spatial sound chime
     soundSynth.playTargetSelect(this.mouse.x);
 
-    const targetPos = new THREE.Vector3(
+    const localTargetPos = new THREE.Vector3(
       system.coordinates.galacticX,
       system.coordinates.galacticY,
       system.coordinates.galacticZ
     );
-    // Position camera close to the host star and revolving planet
-    const cameraDest = targetPos.clone().add(new THREE.Vector3(8.5, 4.2, 9.5));
+    const worldTargetPos = localTargetPos.clone().applyMatrix4(this.galaxyGroup.matrixWorld);
+    this.systemRenderer.group.position.copy(worldTargetPos);
+
+    // Zoom right up to the host star and revolving planet
+    const cameraDest = worldTargetPos.clone().add(new THREE.Vector3(3.8, 1.8, 4.2));
     const flightDuration = this.prefersReducedMotion ? 0.15 : 1.8;
 
-    this.cameraController.flyTo(cameraDest, targetPos, flightDuration);
+    this.cameraController.flyTo(cameraDest, worldTargetPos, flightDuration);
     this.updateHUD(system);
 
     // HUD Glitch Transition Pulse
@@ -325,7 +332,7 @@ export class CosmoScanApp {
   public resetGalaxyView(): void {
     soundSynth.init();
     const flightDuration = this.prefersReducedMotion ? 0.15 : 1.8;
-    this.cameraController.flyTo(new THREE.Vector3(78, 24, 62), new THREE.Vector3(45, 0, 20), flightDuration);
+    this.cameraController.flyTo(new THREE.Vector3(0, 48, 64), new THREE.Vector3(0, 0, 0), flightDuration);
     this.systemRenderer.group.visible = false;
     if (this.targetNodes) {
       this.targetNodes.instancedMesh.visible = true;
@@ -502,10 +509,24 @@ export class CosmoScanApp {
     const elapsedTime = this.clock.getElapsedTime();
 
     try {
+      // Majestic galactic rotation: smooth, real-time rotation visible to the user
+      const rotationSpeed = this.systemRenderer.group.visible ? 0.003 : 0.038;
+      this.galaxyGroup.rotation.y += delta * rotationSpeed;
+
       this.galaxy.update(delta);
       this.galaxy.updateCameraPosition(this.camera);
       this.cameraController.update(delta);
       this.targetNodes?.update(delta, this.camera);
+
+      // Keep active planetary system anchored to its rotating host star in world space
+      if (this.currentSystem && this.systemRenderer.group.visible) {
+        const localTargetPos = new THREE.Vector3(
+          this.currentSystem.coordinates.galacticX,
+          this.currentSystem.coordinates.galacticY,
+          this.currentSystem.coordinates.galacticZ
+        );
+        this.systemRenderer.group.position.copy(localTargetPos.applyMatrix4(this.galaxyGroup.matrixWorld));
+      }
 
       // Only show high-detail planetary system meshes (revolving planets, star surface) when close
       const camTargetDist = this.camera.position.distanceTo(this.systemRenderer.group.position);

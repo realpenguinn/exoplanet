@@ -24,15 +24,15 @@ export class MilkyWayGalaxy {
           vColor = color;
           vTwinkle = aTwinkle;
 
-          // Realistic Living Galactic Rotation Curve (flat curve with core transition)
+          // Living Differential Galactic Rotation Curve (inner stars shear faster than outer stars)
           float r = length(position.xz);
-          float omega = 0.35 / sqrt(r + 14.0);
-          float angle = omega * uTime * 0.18;
+          float omega = 0.28 / sqrt(r + 8.0);
+          float angle = omega * uTime * 0.22;
           float cosA = cos(angle);
           float sinA = sin(angle);
 
           // Living stellar breathing: subtle vertical wave across the galactic disc
-          float waveY = sin(uTime * 0.7 + aTwinkle * 4.0) * 0.22 * exp(-r * 0.012);
+          float waveY = sin(uTime * 0.8 + aTwinkle * 3.0) * 0.12 * exp(-r * 0.02);
 
           vec3 rotatedPos = vec3(
             position.x * cosA - position.z * sinA,
@@ -41,7 +41,7 @@ export class MilkyWayGalaxy {
           );
 
           vec4 mvPosition = modelViewMatrix * vec4(rotatedPos, 1.0);
-          gl_PointSize = size * (42.0 / -mvPosition.z); // Razor-sharp living diamond stars
+          gl_PointSize = size * (38.0 / -mvPosition.z); // Razor-sharp living diamond stars
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -106,13 +106,13 @@ export class MilkyWayGalaxy {
       twinkles[i] = Math.random() * Math.PI * 2.0;
 
       if (i < bulgeCount) {
-        // Expansive Galactic Bulge & Triaxial Bar (Gaussian Distribution)
+        // Vibrant Galactic Bulge & Triaxial Bar
         const u = Math.max(1e-6, Math.random());
-        const r = Math.sqrt(-2.0 * Math.log(u)) * 14.0;
+        const r = Math.sqrt(-2.0 * Math.log(u)) * 6.5;
         const phi = Math.random() * Math.PI * 2;
 
         positions[i3] = r * Math.cos(phi) * 1.6;
-        positions[i3 + 1] = (Math.random() - 0.5) * 6.5 * Math.exp(-r / 16.0);
+        positions[i3 + 1] = (Math.random() - 0.5) * 3.5 * Math.exp(-r / 8.0);
         positions[i3 + 2] = r * Math.sin(phi) * 0.9;
 
         // Core stars: Old, red-orange dominant
@@ -123,28 +123,27 @@ export class MilkyWayGalaxy {
 
         // Power-law magnitude sizing: mostly faint field stars, occasional luminous stars
         const magRand = Math.random();
-        sizes[i] = magRand > 0.96 ? 3.4 + Math.random() * 1.8 : 0.9 + Math.random() * 0.9;
+        sizes[i] = magRand > 0.96 ? 3.0 + Math.random() * 1.5 : 0.8 + Math.random() * 0.8;
       } else {
-        // Expansive Spiral Arms (spanning ~150 units radius across deep space)
+        // Expansive Spiral Arms (spanning edge-to-edge across the viewport)
         const isInterArm = Math.random() < 0.15; // 15% diffuse inter-arm stars
         const armIdx = i % ARMS;
         const thetaOffset = (armIdx * 2 * Math.PI) / ARMS;
-        const dist = Math.pow(Math.random(), 1.35) * 145.0 + 8.0;
-        let spiralAngle = Math.log(dist / 8.0) / Math.tan(PITCH_ANGLE) + thetaOffset;
+        const dist = Math.pow(Math.random(), 1.30) * 58.0 + 4.5;
+        let spiralAngle = Math.log(dist / 4.5) / Math.tan(PITCH_ANGLE) + thetaOffset;
 
         if (isInterArm) {
-          // Broad inter-arm background scatter
           spiralAngle += (Math.random() - 0.5) * (Math.PI / 2.0);
         }
 
         // Cross-sectional arm envelope (dense along spiral spine)
         const uScatter = Math.max(1e-5, Math.random());
-        const scatterSigma = isInterArm ? 8.5 : 2.8;
+        const scatterSigma = isInterArm ? 3.6 : 1.25;
         const scatter = Math.sqrt(-2.0 * Math.log(uScatter)) * scatterSigma;
         const scatterAngle = Math.random() * Math.PI * 2;
 
         positions[i3] = dist * Math.cos(spiralAngle) + scatter * Math.cos(scatterAngle);
-        positions[i3 + 1] = (Math.random() - 0.5) * 3.5 * Math.exp(-dist / 80.0);
+        positions[i3 + 1] = (Math.random() - 0.5) * 1.8 * Math.exp(-dist / 32.0);
         positions[i3 + 2] = dist * Math.sin(spiralAngle) + scatter * Math.sin(scatterAngle);
 
         // Arm stars: Hot OB star forming regions along inner edges
@@ -156,7 +155,7 @@ export class MilkyWayGalaxy {
 
         // Log-normal magnitude sizing with diffraction spike triggers on supergiants
         const magRand = Math.random();
-        sizes[i] = magRand > 0.97 ? 3.8 + Math.random() * 2.2 : 0.8 + Math.random() * 1.0;
+        sizes[i] = magRand > 0.97 ? 3.2 + Math.random() * 1.8 : 0.7 + Math.random() * 0.9;
       }
     }
 

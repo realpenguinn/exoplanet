@@ -4,13 +4,13 @@ export class CoordinateTransformer {
   private static readonly DEG_TO_RAD = Math.PI / 180.0;
   private static readonly PC_TO_LY = 3.26156;
 
-  // Sun Galactocentric position inside the expansive Milky Way disk (Orion Spur)
-  private static readonly SUN_GALACTIC_X = 72.0;
-  private static readonly SUN_GALACTIC_Y = 0.2;
+  // Sun Galactocentric position inside the Orion Spur (R0 = 8.2 kpc scaled to galaxy disc)
+  private static readonly SUN_GALACTIC_X = 35.0;
+  private static readonly SUN_GALACTIC_Y = 0.1;
   private static readonly SUN_GALACTIC_Z = 0.0;
 
-  // Interstellar scale: maps parsecs across wide 3D space so user can freely travel between stars
-  private static readonly SCENE_DISTANCE_SCALE = 0.024;
+  // Interstellar scale: spaces out exoplanets across the local arm
+  private static readonly SCENE_DISTANCE_SCALE = 0.012;
 
   // IAU J2000 Transformation constants (Equatorial to Galactic)
   private static readonly RA_NGP = 192.85948 * (Math.PI / 180.0);   // RA of North Galactic Pole
