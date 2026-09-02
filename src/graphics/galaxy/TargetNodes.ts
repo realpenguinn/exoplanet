@@ -13,12 +13,12 @@ export class TargetNodes {
     this.systemIndexMap = systems;
     const count = systems.length;
 
-    // Lightweight base sphere geometry for needle-sharp target markers
-    const geometry = new THREE.SphereGeometry(0.032, 10, 10);
+    // Needle-sharp diamond star markers calibrated for vast interstellar exploration
+    const geometry = new THREE.SphereGeometry(0.045, 12, 12);
     const material = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.88,
+      opacity: 0.90,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
@@ -30,11 +30,11 @@ export class TargetNodes {
     for (let i = 0; i < count; i++) {
       const sys = systems[i];
 
-      // Sharpened pinpoint apparent angular size (nearer & larger stars appear prominent, yet crisp)
+      // Physical apparent angular size: nearer & larger stars appear prominent, yet pin-sharp
       const distPc = Math.max(5.0, sys.coordinates.distancePc);
       const starRad = Math.max(0.2, Math.min(3.0, sys.stellarPhysics.radiusSolar));
       const angularSize = starRad / (distPc / 1000.0); // R* / d in kpc
-      const starScale = Math.max(0.35, Math.min(1.6, 0.9 * Math.sqrt(angularSize) + 0.4));
+      const starScale = Math.max(0.4, Math.min(1.8, 1.0 * Math.sqrt(angularSize) + 0.5));
 
       this.dummy.position.set(
         sys.coordinates.galacticX,
@@ -69,7 +69,7 @@ export class TargetNodes {
     }
 
     // Pulsing Selection Ring for Active Target
-    const ringGeom = new THREE.RingGeometry(0.25, 0.38, 32);
+    const ringGeom = new THREE.RingGeometry(0.8, 1.1, 32);
     this.ringMaterial = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       side: THREE.DoubleSide,

@@ -4,13 +4,13 @@ export class CoordinateTransformer {
   private static readonly DEG_TO_RAD = Math.PI / 180.0;
   private static readonly PC_TO_LY = 3.26156;
 
-  // Real Sun Galactocentric position inside the Milky Way disk (Orion Spur, R0 = 8.2 kpc)
-  private static readonly SUN_GALACTIC_X = 8.2;
-  private static readonly SUN_GALACTIC_Y = 0.02;
+  // Sun Galactocentric position inside the expansive Milky Way disk (Orion Spur)
+  private static readonly SUN_GALACTIC_X = 72.0;
+  private static readonly SUN_GALACTIC_Y = 0.2;
   private static readonly SUN_GALACTIC_Z = 0.0;
 
-  // 1 scene unit = 180 pc. Scale 0.0055 spaces out the Kepler cone cleanly along the Orion arm
-  private static readonly SCENE_DISTANCE_SCALE = 0.0055;
+  // Interstellar scale: maps parsecs across wide 3D space so user can freely travel between stars
+  private static readonly SCENE_DISTANCE_SCALE = 0.024;
 
   // IAU J2000 Transformation constants (Equatorial to Galactic)
   private static readonly RA_NGP = 192.85948 * (Math.PI / 180.0);   // RA of North Galactic Pole
